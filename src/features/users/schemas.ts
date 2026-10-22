@@ -52,3 +52,16 @@ export const updateUserSchema = z.object({
   name: zText("Name", 100),
   phone: zOptionalPhone(),
 });
+
+export const resetWithCodeSchema = z
+  .object({
+    identifier: zText("Login name or email", 150),
+    code: z.string().trim().regex(/^\d{6}$/, "The code has 6 digits."),
+    newPassword: password,
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "The two passwords do not match." });
+
+export const emailSchema = z.object({
+  email: z.preprocess((v) => (typeof v === "string" ? v.trim().toLowerCase() : v), z.email("Enter a valid email address.").max(150)),
+});

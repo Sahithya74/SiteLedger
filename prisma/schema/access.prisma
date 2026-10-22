@@ -6,6 +6,9 @@ model User {
   username           String    @unique // always stored lowercase
   name               String
   phone              String?
+  /// Used only for "forgot password" codes, after the person confirms it with a code.
+  email              String?   @unique // stored lowercase
+  emailVerifiedAt    DateTime? @db.Timestamptz(3)
   role               Role
   passwordHash       String
   isActive           Boolean   @default(true)
@@ -18,6 +21,7 @@ model User {
   updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
 
   sessions           Session[]
+  verificationCodes  VerificationCode[]
   permissions        UserPermission[]       @relation("PermissionUser")
   grantedPermissions UserPermission[]       @relation("PermissionGrantedBy")
   projectAssignments ProjectAssignment[]
@@ -109,4 +113,26 @@ model PeriodLock {
   lockedById String
   lockedBy   User     @relation(fields: [lockedById], references: [id])
   createdAt  DateTime @default(now()) @db.Timestamptz(3)
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFY // confirms the person owns the email address
+  PASSWORD_RESET // "forgot password"
+}
+
+/// One-time 6-digit codes sent by email. Only a hash of the code is stored.
+model VerificationCode {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   VerificationPurpose
+  email     String // where it was sent
+  codeHash  String
+  expiresAt DateTime            @db.Timestamptz(3)
+  attempts  Int                 @default(0)
+  usedAt    DateTime?           @db.Timestamptz(3)
+  ipAddress String?
+  createdAt DateTime            @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, purpose, createdAt])
 }

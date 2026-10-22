@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * login page before any page code runs. The real check (is the session valid,
  * what may this user do) happens on the server in every page and action.
  */
-const PUBLIC_PATHS = ["/login", "/setup"];
+const PUBLIC_PATHS = ["/login", "/setup", "/forgot-password"];
 const SESSION_COOKIES = ["sitecore_session", "__Host-sitecore_session"];
 
 export function proxy(request: NextRequest) {
