@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { GlobalSearch } from "@/components/shell/global-search";
+import { NotificationBell } from "@/components/shell/notification-bell";
 import { UserMenu } from "@/components/shell/user-menu";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -8,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { roleLabel } from "@/lib/labels";
 import { navigationFor } from "@/lib/navigation";
 import { requireUser } from "@/server/auth/current-user";
+import { taskReminderSuggestions, unreadCount } from "@/server/services/notifications";
 import { companyName } from "@/server/services/users";
 
 /**
@@ -46,7 +48,13 @@ async function SidebarForUser() {
 
 async function HeaderUser() {
   const user = await requireUser();
-  return <UserMenu name={user.name} roleLabel={roleLabel(user.role)} isOwner={user.role === "ADMIN"} />;
+  const [unread, tasks] = await Promise.all([unreadCount(user), taskReminderSuggestions(user)]);
+  return (
+    <div className="flex items-center gap-1">
+      <NotificationBell count={unread + tasks.filter((t) => !t.sentToday).length} />
+      <UserMenu name={user.name} roleLabel={roleLabel(user.role)} isOwner={user.role === "ADMIN"} />
+    </div>
+  );
 }
 
 function SidebarFallback() {
