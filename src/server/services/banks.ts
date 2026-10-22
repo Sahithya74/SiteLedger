@@ -11,10 +11,11 @@ import { accountBalances } from "@/server/services/ledger";
 
 type Actor = Pick<CurrentUser, "id" | "name" | "role" | "permissions">;
 
+/** All accounts for people who may see balances; otherwise only the site cash the person holds. */
 export async function listAccounts(user: Actor) {
-  if (!can(user, "bank.viewBalances")) throw new ForbiddenError();
+  const all = can(user, "bank.viewBalances");
   const [accounts, unreconciled] = await Promise.all([
-    accountBalances(),
+    accountBalances().then((rows) => (all ? rows : rows.filter((a) => a.holderUserId === user.id))),
     db.bankTransaction.groupBy({ by: ["accountId"], where: { reconciledAt: null }, _count: { _all: true } }),
   ]);
   const holders = await db.user.findMany({ where: { id: { in: accounts.map((a) => a.holderUserId).filter(Boolean) as string[] } }, select: { id: true, name: true } });
@@ -29,9 +30,10 @@ export async function listAccounts(user: Actor) {
 }
 
 export async function getAccountLedger(user: Actor, id: string, filter: { from?: ISODate | null; to?: ISODate | null } = {}) {
-  if (!can(user, "bank.viewBalances")) throw new ForbiddenError();
   const account = await db.bankAccount.findUnique({ where: { id } });
   if (!account) return null;
+  // Managers may follow the site cash they hold, and nothing else.
+  if (!can(user, "bank.viewBalances") && account.holderUserId !== user.id) throw new ForbiddenError();
   const all = await db.bankTransaction.findMany({
     where: { accountId: id },
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
