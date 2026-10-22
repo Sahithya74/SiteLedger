@@ -3,11 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
+  Boxes,
   Building2,
+  ClipboardList,
   HardHat,
+  IndianRupee,
   LayoutDashboard,
   ScrollText,
   Settings,
+  UserRoundCog,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -34,7 +39,12 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   dashboard: LayoutDashboard,
   projects: Building2,
   clients: Users,
-  people: HardHat,
+  materials: Boxes,
+  labour: HardHat,
+  engineers: UserRoundCog,
+  accounts: IndianRupee,
+  site: ClipboardList,
+  reports: BarChart3,
   audit: ScrollText,
   settings: Settings,
 };
