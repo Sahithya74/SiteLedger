@@ -51,7 +51,13 @@ export function BillDocument({
   showSignature?: boolean;
 }) {
   const half = (Number(taxPercent) / 2).toString();
-  let lastSection: string | null = null;
+  // Print a section heading only where the section changes.
+  const headings: (string | null)[] = [];
+  let current: string | null = null;
+  for (const l of lines) {
+    headings.push(l.section && l.section !== current ? l.section : null);
+    if (l.section) current = l.section;
+  }
   const showHsn = lines.some((l) => l.hsnSac);
   return (
     <article className="bill-doc mx-auto w-full max-w-[210mm] rounded-xl border bg-white p-5 text-[13px] leading-snug text-stone-900 shadow-xs sm:p-8 print:rounded-none print:border-0 print:p-0 print:shadow-none">
@@ -114,17 +120,16 @@ export function BillDocument({
           <tbody>
             {lines.flatMap((l, i) => {
               const rows = [];
-              if (l.section && l.section !== lastSection) {
+              if (headings[i]) {
                 rows.push(
                   <tr key={`s-${l.id}`} className="border-b border-stone-200">
                     <td />
                     <td colSpan={showHsn ? 5 : 4} className="px-2 pt-2.5 pb-1 font-semibold">
-                      {l.section}
+                      {headings[i]}
                     </td>
                   </tr>,
                 );
               }
-              lastSection = l.section ?? lastSection;
               rows.push(
                 <tr key={l.id} className="border-b border-stone-200 align-top">
                   <td className="tabular px-2 py-1.5 text-stone-500">{i + 1}</td>

@@ -178,3 +178,21 @@
   z-index: 0;
   font: inherit;
 }
+
+/* Printing (quotations, bills, receipts, reports): A4 with modest margins; app chrome hidden. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  .print-sheet {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+}
