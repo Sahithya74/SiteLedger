@@ -45,7 +45,7 @@ CREATE DATABASE sitecore_test OWNER sitecore;
 ### 3. Configure
 
 ```powershell
-cd C:\dev\sitecore
+cd "$env:USERPROFILE\OneDrive\Desktop\SiteLedger"
 copy .env.example .env
 notepad .env
 ```
