@@ -24,8 +24,9 @@ describe("login", () => {
     await makeUser("ADMIN", { username: "ramesh" });
     const wrongPassword = await attemptLogin("ramesh", "nope-nope-nope", meta);
     const unknownUser = await attemptLogin("nobody", "nope-nope-nope", { ...meta, ipAddress: "10.0.0.2" });
-    expect(wrongPassword).toEqual({ ok: false, error: "Wrong login name or password." });
-    expect(unknownUser).toEqual({ ok: false, error: "Wrong login name or password." });
+    // Identical replies, so nobody can tell which login names exist.
+    expect(wrongPassword).toEqual({ ok: false, error: "Wrong login name or password. 2 tries left." });
+    expect(unknownUser).toEqual(wrongPassword);
   });
 
   it(`locks the login name after ${MAX_FAILURES_PER_USERNAME} wrong passwords`, async () => {

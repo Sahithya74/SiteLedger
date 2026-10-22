@@ -26,7 +26,10 @@
     "db:setup": "node scripts/pg.mjs setup",
     "db:start": "node scripts/pg.mjs start",
     "db:stop": "node scripts/pg.mjs stop",
-    "db:status": "node scripts/pg.mjs status"
+    "db:status": "node scripts/pg.mjs status",
+    "user:disable-2fa": "tsx --conditions=react-server scripts/disable-2fa.ts",
+    "backup": "tsx --conditions=react-server scripts/backup.ts",
+    "db:restore": "tsx --conditions=react-server scripts/restore-backup.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.2",
@@ -43,7 +46,9 @@
     "lucide-react": "^1.60.0",
     "next": "16.4.2",
     "next-themes": "^0.4.6",
+    "nodemailer": "10.0.13",
     "pg": "8.23.1",
+    "qrcode": "1.5.4",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -60,7 +65,9 @@
     "@tailwindcss/turbopack": "^4",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^24.19.2",
+    "@types/nodemailer": "8.0.2",
     "@types/pg": "^8.23.1",
+    "@types/qrcode": "1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

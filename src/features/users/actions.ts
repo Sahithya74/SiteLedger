@@ -3,15 +3,19 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createManagerSchema, resetPasswordSchema, updateUserSchema } from "@/features/users/schemas";
+import { createManagerSchema, emailSchema, resetPasswordSchema, updateUserSchema } from "@/features/users/schemas";
 import { zOptionalText, zText } from "@/lib/validation";
 import { formToObject, runAction, type ActionResult } from "@/server/action";
-import { requireActionUser } from "@/server/auth/current-user";
+import { requestMeta, requireActionUser } from "@/server/auth/current-user";
 import {
   createManager,
   endSession,
   resetUserPassword,
   setCompanyProfile,
+  enableTotp,
+  setOwnEmail,
+  confirmOwnEmail,
+  disableTotp,
   setManagerPermissions,
   setManagerProjects,
   setUserActive,
@@ -119,5 +123,44 @@ export async function companyProfileAction(_prev: Result, formData: FormData): P
     await setCompanyProfile(user, companySchema.parse(formToObject(formData)));
     refresh();
     return { ok: true, message: "Company details saved." };
+  });
+}
+
+export async function enableTotpAction(_prev: Result, formData: FormData): Promise<Result> {
+  return runAction(async () => {
+    const user = await requireActionUser();
+    const { code } = z.object({ code: zText("Code", 10) }).parse(formToObject(formData));
+    await enableTotp(user, code);
+    redirect("/settings?twostep=on");
+  });
+}
+
+export async function disableTotpAction(_prev: Result, formData: FormData): Promise<Result> {
+  return runAction(async () => {
+    const user = await requireActionUser();
+    const { password, code } = z.object({ password: zText("Password", 200), code: zText("Code", 10) }).parse(formToObject(formData));
+    await disableTotp(user, password, code);
+    refresh();
+    return { ok: true, message: "2-step login turned off." };
+  });
+}
+
+export async function setEmailAction(_prev: Result, formData: FormData): Promise<Result> {
+  return runAction(async () => {
+    const user = await requireActionUser();
+    const { email } = emailSchema.parse(formToObject(formData));
+    await setOwnEmail(user, email, (await requestMeta()).ipAddress);
+    refresh();
+    return { ok: true, message: `A 6-digit code was sent to ${email}.` };
+  });
+}
+
+export async function confirmEmailAction(_prev: Result, formData: FormData): Promise<Result> {
+  return runAction(async () => {
+    const user = await requireActionUser();
+    const { code } = z.object({ code: z.string().trim().regex(/^\d{6}$/, "The code has 6 digits.") }).parse(formToObject(formData));
+    await confirmOwnEmail(user, code);
+    refresh();
+    return { ok: true, message: "Email confirmed. You can now use “Forgot password” if you ever need it." };
   });
 }

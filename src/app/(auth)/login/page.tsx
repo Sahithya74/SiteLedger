@@ -19,6 +19,6 @@ export default function LoginPage(props: PageProps<"/login">) {
 async function LoginGate({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {
   if (await getCurrentUser()) redirect("/dashboard");
   if ((await userCount()) === 0) redirect("/setup");
-  const { next } = await searchParams;
-  return <LoginForm next={typeof next === "string" ? next : undefined} />;
+  const { next, reset } = await searchParams;
+  return <LoginForm next={typeof next === "string" ? next : undefined} passwordReset={reset === "1"} />;
 }

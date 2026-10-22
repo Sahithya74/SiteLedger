@@ -9,6 +9,9 @@ import {
 import type { CurrentUser } from "@/server/auth/current-user";
 import { hashPassword, passwordProblem, verifyPassword } from "@/server/auth/password";
 import { invalidateUserSessions } from "@/server/auth/session";
+import { generateTotpSecret, otpauthUrl, verifyTotp } from "@/server/auth/totp";
+import { consumeCode, issueCode, normaliseEmail } from "@/server/auth/verification";
+import { emailConfigured } from "@/integrations/email";
 import { audit } from "@/server/audit";
 import { db } from "@/server/db";
 import { AppError, ForbiddenError, NotFoundError } from "@/server/errors";
@@ -227,7 +230,8 @@ export async function resetUserPassword(actor: CurrentUser, userId: string, newP
   await db.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
-      data: { passwordHash, mustChangePassword: !isSelf, passwordChangedAt: new Date() },
+      // A reset for someone else also turns off their 2-step login (usually a lost phone).
+      data: { passwordHash, mustChangePassword: !isSelf, passwordChangedAt: new Date(), ...(isSelf ? {} : { totpEnabled: false, totpSecret: null }) },
     });
     await audit(tx, {
       actor,
@@ -392,5 +396,82 @@ export async function setCompanyProfile(actor: CurrentUser, input: CompanyProfil
       before,
       after: input,
     });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2-step login (authenticator app)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function totpStatus(actor: CurrentUser) {
+  const u = await db.user.findUniqueOrThrow({ where: { id: actor.id }, select: { totpEnabled: true, totpSecret: true, username: true } });
+  return { enabled: u.totpEnabled, pendingSecret: !u.totpEnabled ? u.totpSecret : null, username: u.username };
+}
+
+/** Starts setup: a new secret is kept (not yet active) until a code from the app confirms it. */
+export async function beginTotpSetup(actor: CurrentUser): Promise<{ secret: string; url: string }> {
+  const u = await db.user.findUniqueOrThrow({ where: { id: actor.id } });
+  if (u.totpEnabled) throw new AppError("2-step login is already on.");
+  const secret = u.totpSecret ?? generateTotpSecret();
+  if (!u.totpSecret) await db.user.update({ where: { id: actor.id }, data: { totpSecret: secret } });
+  return { secret, url: otpauthUrl(secret, u.username, await companyName()) };
+}
+
+export async function enableTotp(actor: CurrentUser, code: string): Promise<void> {
+  const u = await db.user.findUniqueOrThrow({ where: { id: actor.id } });
+  if (u.totpEnabled) return;
+  if (!u.totpSecret || verifyTotp(u.totpSecret, code) === null) throw new AppError("That code is not right. Type the code now showing in the app.", { code: "Wrong code." });
+  await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: actor.id }, data: { totpEnabled: true } });
+    await audit(tx, { actor, action: "UPDATE", entityType: "User", entityId: actor.id, summary: "turned on 2-step login" });
+  });
+  // Other devices must log in again with the code.
+  await invalidateUserSessions(actor.id, actor.sessionId);
+}
+
+export async function disableTotp(actor: CurrentUser, password: string, code: string): Promise<void> {
+  const u = await db.user.findUniqueOrThrow({ where: { id: actor.id } });
+  if (!u.totpEnabled || !u.totpSecret) return;
+  if (!(await verifyPassword(u.passwordHash, password))) throw new AppError("Your password is not right.", { password: "Wrong password." });
+  if (verifyTotp(u.totpSecret, code) === null) throw new AppError("That code is not right.", { code: "Wrong code." });
+  await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: actor.id }, data: { totpEnabled: false, totpSecret: null } });
+    await audit(tx, { actor, action: "UPDATE", entityType: "User", entityId: actor.id, summary: "turned off 2-step login" });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Email for "forgot password" (confirmed with a code first)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function emailStatus(actor: CurrentUser) {
+  const u = await db.user.findUniqueOrThrow({ where: { id: actor.id }, select: { email: true, emailVerifiedAt: true } });
+  return { email: u.email, verified: Boolean(u.email && u.emailVerifiedAt), emailConfigured: emailConfigured() };
+}
+
+/** Saves the address (not yet trusted) and emails a code to confirm it. */
+export async function setOwnEmail(actor: CurrentUser, rawEmail: string, ipAddress: string | null): Promise<void> {
+  const email = normaliseEmail(rawEmail);
+  const taken = await db.user.findFirst({ where: { email, id: { not: actor.id } }, select: { id: true } });
+  if (taken) throw new AppError("This email is already used by another login.", { email: "Already used." });
+  const before = await db.user.findUniqueOrThrow({ where: { id: actor.id } });
+  if (before.email !== email || !before.emailVerifiedAt) {
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: actor.id }, data: { email, emailVerifiedAt: null } });
+      await audit(tx, { actor, action: "UPDATE", entityType: "User", entityId: actor.id, summary: `set their email to ${email} (waiting for confirmation)` });
+    });
+  }
+  await issueCode(actor, "EMAIL_VERIFY", email, ipAddress);
+}
+
+export async function confirmOwnEmail(actor: CurrentUser, code: string): Promise<void> {
+  const u = await db.user.findUniqueOrThrow({ where: { id: actor.id } });
+  if (!u.email) throw new AppError("Add your email first.");
+  const result = await consumeCode(actor.id, "EMAIL_VERIFY", code);
+  if (!result.ok) throw new AppError(result.error, { code: result.error });
+  if (result.email !== u.email) throw new AppError("This code was for a different email. Ask for a new one.", { code: "Old code." });
+  await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: actor.id }, data: { emailVerifiedAt: new Date() } });
+    await audit(tx, { actor, action: "UPDATE", entityType: "User", entityId: actor.id, summary: `confirmed their email ${u.email}` });
   });
 }
