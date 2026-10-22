@@ -16,7 +16,7 @@ const fieldsSchema = z.object({
 /** Upload one file (multipart form). Requires a session and "upload documents". */
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Please log in again." }, { status: 401 });
+  if (!user || user.mustChangePassword) return NextResponse.json({ error: "Please log in again." }, { status: 401 });
   // Server actions check the Origin header; this route checks it too.
   const origin = request.headers.get("origin");
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");

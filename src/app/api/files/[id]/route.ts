@@ -6,7 +6,7 @@ const INLINE = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "a
 /** Download / view an attachment. Only for logged-in people who can see it. */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
-  if (!user) return new Response("Please log in.", { status: 401 });
+  if (!user || user.mustChangePassword) return new Response("Please log in.", { status: 401 });
   const { id } = await params;
   const found = await readDocument(user, id).catch(() => null);
   if (!found) return new Response("Not found.", { status: 404 });

@@ -245,6 +245,7 @@ export async function listPurchases(user: Actor & { id: string }, filter: Purcha
         supplier: p.supplier,
         project: p.project,
         invoiceNumber: p.invoiceNumber,
+        taxPaise: p.taxPaise,
         totalPaise: p.totalPaise,
         paidPaise,
         balancePaise: p.cancelledAt ? 0n : p.totalPaise - paidPaise,

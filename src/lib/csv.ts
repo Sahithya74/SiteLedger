@@ -6,7 +6,9 @@
 
 function escapeCell(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const text = String(value);
+  let text = String(value);
+  // Text that Excel would run as a formula (=, +, @, or - not followed by a number) is prefixed with '.
+  if (/^[=+@\t\r]/.test(text) || /^-(?![\d.])/.test(text)) text = `'${text}`;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
