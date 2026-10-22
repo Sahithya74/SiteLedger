@@ -102,6 +102,9 @@ async function ProjectHeader({ params }: { params: LayoutProps<"/projects/[id]">
           { segment: "", label: "Overview" },
           { segment: "work", label: "Work", count: stats.overdueItems },
           ...(can(user, "projects.viewMoney") ? [{ segment: "money", label: "Money" }] : []),
+          { segment: "materials", label: "Materials" },
+          { segment: "labour", label: "Labour" },
+          { segment: "site", label: "Site diary" },
           { segment: "map", label: "Map" },
         ]}
       />
