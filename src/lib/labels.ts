@@ -314,3 +314,43 @@ export const VARIATION_STATUS: Record<"PROPOSED" | "APPROVED" | "REJECTED", { la
   APPROVED: { label: "Approved", tone: "green" },
   REJECTED: { label: "Rejected", tone: "grey" },
 };
+
+export const DELIVERY_CHANNEL: Record<"PHONE_CALL" | "WHATSAPP" | "SMS" | "EMAIL" | "IN_PERSON", string> = {
+  WHATSAPP: "WhatsApp",
+  PHONE_CALL: "Phone call",
+  SMS: "SMS",
+  IN_PERSON: "In person",
+  EMAIL: "Email",
+};
+
+export const DOCUMENT_KIND: Record<"BILL" | "INVOICE" | "RECEIPT" | "CONTRACT" | "PHOTO" | "DRAWING" | "APPROVAL" | "QUOTATION" | "REPORT" | "OTHER", string> = {
+  PHOTO: "Photo",
+  BILL: "Bill",
+  INVOICE: "Invoice",
+  RECEIPT: "Receipt",
+  CONTRACT: "Agreement / contract",
+  DRAWING: "Drawing",
+  APPROVAL: "Approval / permit",
+  QUOTATION: "Quotation",
+  REPORT: "Report",
+  OTHER: "Other",
+};
+
+/** Where a document is attached, with the page that shows it. */
+export const DOCUMENT_ENTITY: Record<string, { label: string; href?: (id: string) => string }> = {
+  PROJECT: { label: "Project", href: (id) => `/projects/${id}` },
+  CLIENT: { label: "Client", href: (id) => `/clients/${id}` },
+  QUOTATION: { label: "Quotation", href: (id) => `/clients/quotations/${id}` },
+  INVOICE: { label: "Client bill", href: (id) => `/clients/bills/${id}` },
+  CLIENT_PAYMENT: { label: "Client payment" },
+  PAYMENT: { label: "Payment" },
+  PURCHASE: { label: "Purchase", href: (id) => `/materials/purchases/${id}` },
+  EXPENSE: { label: "Expense" },
+  DAILY_REPORT: { label: "Daily report", href: (id) => `/daily-reports/${id}` },
+  WORK_ITEM: { label: "Work item" },
+  ISSUE: { label: "Site issue" },
+  ENGINEER_TASK: { label: "Engineer task" },
+  SUPPLIER: { label: "Supplier", href: (id) => `/materials/suppliers/${id}` },
+  EQUIPMENT: { label: "Equipment", href: (id) => `/equipment/${id}` },
+  CONTRACTOR_BILL: { label: "Contractor bill" },
+};

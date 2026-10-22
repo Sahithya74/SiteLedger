@@ -91,6 +91,23 @@ const NAV: NavSection[] = [
       { title: "Bank & cash", href: "/accounts/banks" },
     ],
   },
+  {
+    title: "Site",
+    href: "/daily-reports",
+    icon: "site",
+    children: [
+      { title: "Daily reports", href: "/daily-reports" },
+      { title: "Equipment", href: "/equipment" },
+      { title: "Documents", href: "/documents" },
+      { title: "Notifications", href: "/notifications" },
+    ],
+  },
+  {
+    title: "Reports",
+    href: "/reports",
+    icon: "reports",
+    permission: ["reports.view", "projects.viewMoney", "payments.record", "expenses.record", "purchases.record", "materials.record", "wages.view", "attendance.record"],
+  },
   { title: "Audit log", href: "/audit", icon: "audit", permission: "audit.view" },
   {
     title: "Settings",
