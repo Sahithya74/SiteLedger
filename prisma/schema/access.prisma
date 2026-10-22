@@ -1,0 +1,112 @@
+// Users, sessions and permissions. Only ADMIN and MANAGER users exist —
+// there is no public registration and no client/labour/engineer login.
+
+model User {
+  id                 String    @id @default(cuid())
+  username           String    @unique // always stored lowercase
+  name               String
+  phone              String?
+  role               Role
+  passwordHash       String
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  totpSecret         String? // optional 2-step login (Stage 5)
+  totpEnabled        Boolean   @default(false)
+  lastLoginAt        DateTime? @db.Timestamptz(3)
+  passwordChangedAt  DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  sessions           Session[]
+  permissions        UserPermission[]       @relation("PermissionUser")
+  grantedPermissions UserPermission[]       @relation("PermissionGrantedBy")
+  projectAssignments ProjectAssignment[]
+  auditLogs          AuditLog[]
+  periodLocks        PeriodLock[]
+  siteCashAccounts   BankAccount[]          @relation("SiteCashHolder")
+  notificationReads  NotificationRead[]
+  notificationsSent  NotificationDelivery[]
+
+  // "Recorded by" links on operational and financial records
+  attendanceRecorded      Attendance[]
+  inventoryRecorded       InventoryTransaction[]
+  paymentsRecorded        Payment[]
+  clientPaymentsRecorded  ClientPayment[]
+  expensesRecorded        Expense[]
+  otherIncomeRecorded     OtherIncome[]
+  transfersRecorded       AccountTransfer[]
+  ledgerEntriesRecorded   BankTransaction[]      @relation("LedgerCreatedBy")
+  ledgerReconciled        BankTransaction[]      @relation("LedgerReconciledBy")
+  purchasesRecorded       Purchase[]
+  quotationsCreated       Quotation[]
+  invoicesCreated         Invoice[]
+  contractorBillsCreated  ContractorBill[]
+  wageSettlementsCreated  WageSettlement[]
+  dailyReports            DailyReport[]
+  documentsUploaded       Document[]
+  issuesReported          Issue[]
+  materialRequestsMade    MaterialRequest[]      @relation("MaterialRequestedBy")
+  materialRequestsDecided MaterialRequest[]      @relation("MaterialDecidedBy")
+}
+
+model Session {
+  // SHA-256 (hex) of the random session token. The raw token only lives in the cookie.
+  id                String   @id
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt         DateTime @db.Timestamptz(3) // idle expiry, extended on activity
+  absoluteExpiresAt DateTime @db.Timestamptz(3) // hard limit regardless of activity
+  lastSeenAt        DateTime @default(now()) @db.Timestamptz(3)
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  username  String
+  ipAddress String
+  success   Boolean
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([username, createdAt])
+  @@index([ipAddress, createdAt])
+}
+
+// Permissions granted to a MANAGER. ADMIN always has every permission.
+// Keys are defined in src/server/permissions.ts.
+model UserPermission {
+  userId      String
+  user        User     @relation("PermissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  permission  String
+  grantedById String?
+  grantedBy   User?    @relation("PermissionGrantedBy", fields: [grantedById], references: [id])
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([userId, permission])
+}
+
+// Which projects a MANAGER can see and work on.
+model ProjectAssignment {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([userId, projectId])
+  @@index([projectId])
+}
+
+// Month lock: financial entries dated on or before `lockedUpTo` are refused.
+// Append-only history — the latest row is the active lock.
+model PeriodLock {
+  id         String   @id @default(cuid())
+  lockedUpTo DateTime @db.Date
+  reason     String?
+  lockedById String
+  lockedBy   User     @relation(fields: [lockedById], references: [id])
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+}

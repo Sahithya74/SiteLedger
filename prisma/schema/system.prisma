@@ -1,0 +1,151 @@
+// Notifications, documents and the audit log.
+
+enum Severity {
+  CRITICAL // red
+  WARNING // amber
+  SUCCESS // green
+  INFO // blue
+}
+
+enum DeliveryChannel {
+  PHONE_CALL
+  WHATSAPP
+  SMS
+  EMAIL
+  IN_PERSON
+}
+
+enum MessageStatus {
+  SENT
+  QUEUED
+  FAILED
+}
+
+enum DocumentEntity {
+  PROJECT
+  CLIENT
+  QUOTATION
+  INVOICE
+  CLIENT_PAYMENT
+  PAYMENT
+  PURCHASE
+  EXPENSE
+  DAILY_REPORT
+  WORK_ITEM
+  ISSUE
+  ENGINEER_TASK
+  SUPPLIER
+  EQUIPMENT
+  CONTRACTOR_BILL
+}
+
+enum DocumentKind {
+  BILL
+  INVOICE
+  RECEIPT
+  CONTRACT
+  PHOTO
+  DRAWING
+  APPROVAL
+  QUOTATION
+  REPORT
+  OTHER
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  kind       String // e.g. CLIENT_PAYMENT_OVERDUE, STOCK_LOW, ENGINEER_REMINDER
+  severity   Severity
+  title      String
+  message    String
+  link       String? // in-app path to open
+  projectId  String?
+  project    Project?  @relation(fields: [projectId], references: [id])
+  engineerId String? // engineer reminders
+  engineer   Engineer? @relation(fields: [engineerId], references: [id])
+  entityType String?
+  entityId   String?
+  // Rule-generated alerts use a stable key so the same alert is not created twice.
+  dedupeKey  String?   @unique
+  adminOnly  Boolean   @default(false)
+  dueDate    DateTime? @db.Date
+  resolvedAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  reads      NotificationRead[]
+  deliveries NotificationDelivery[]
+
+  @@index([createdAt])
+  @@index([projectId])
+}
+
+model NotificationRead {
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@id([notificationId, userId])
+}
+
+// Record that a reminder was passed on to someone outside the app
+// (phone call, WhatsApp…). Later, SMS/WhatsApp integrations write here too.
+model NotificationDelivery {
+  id             String          @id @default(cuid())
+  notificationId String
+  notification   Notification    @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel        DeliveryChannel
+  status         MessageStatus   @default(SENT)
+  recipientName  String
+  recipientPhone String?
+  note           String?
+  providerRef    String?
+  sentAt         DateTime        @default(now()) @db.Timestamptz(3)
+  sentById       String
+  sentBy         User            @relation(fields: [sentById], references: [id])
+}
+
+model Document {
+  id           String         @id @default(cuid())
+  entityType   DocumentEntity
+  entityId     String
+  projectId    String?
+  project      Project?       @relation(fields: [projectId], references: [id])
+  kind         DocumentKind   @default(OTHER)
+  title        String
+  fileName     String // original name, for download
+  storageKey   String         @unique // where the storage provider keeps it
+  mimeType     String
+  sizeBytes    Int
+  sha256       String
+  uploadedById String
+  uploadedBy   User           @relation(fields: [uploadedById], references: [id])
+  deletedAt    DateTime?      @db.Timestamptz(3)
+  createdAt    DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([entityType, entityId])
+  @@index([projectId])
+}
+
+// Append-only (protected by a database trigger).
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  user       User?       @relation(fields: [userId], references: [id])
+  userName   String // snapshot, so the log reads correctly even if the user is renamed
+  action     AuditAction
+  entityType String
+  entityId   String?
+  projectId  String?
+  summary    String // plain English: "Admin recorded ₹50,000 client payment"
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+}

@@ -1,0 +1,320 @@
+// Engineers, labour, labour contractors, attendance and wages.
+// None of these people have login accounts.
+
+enum PayFrequency {
+  MONTHLY
+  WEEKLY
+  DAILY
+}
+
+enum LabourCategory {
+  MASON
+  HELPER
+  CARPENTER
+  PAINTER
+  ELECTRICIAN
+  PLUMBER
+  STEEL_WORKER
+  TILE_WORKER
+  GRANITE_WORKER
+  MACHINE_OPERATOR
+  OTHER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  HALF_DAY
+  ABSENT
+}
+
+enum EngineerTaskKind {
+  TASK
+  INSPECTION
+  SITE_VISIT
+  REPORT
+}
+
+enum WorkOrderType {
+  PIECE_RATE // ₹ per unit (sq.ft, cu.m, nos…)
+  LUMP_SUM
+  DAILY_RATE
+}
+
+enum WorkOrderStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum BillStatus {
+  DRAFT
+  APPROVED
+  CANCELLED
+}
+
+enum WageSettlementStatus {
+  DRAFT
+  FINALISED
+}
+
+model Engineer {
+  id               String       @id @default(cuid())
+  code             String       @unique // ENG-0001
+  name             String
+  phone            String?
+  altPhone         String?
+  email            String?
+  qualification    String?
+  role             String? // Site Engineer, Supervisor, Structural Consultant…
+  joiningDate      DateTime?    @db.Date
+  payFrequency     PayFrequency @default(MONTHLY)
+  salaryPaise      BigInt       @default(0) // monthly salary
+  dailyWagePaise   BigInt       @default(0) // when paid per day
+  responsibilities String?
+  notes            String?
+  isActive         Boolean      @default(true)
+  deletedAt        DateTime?    @db.Timestamptz(3)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
+
+  projects      EngineerProject[]
+  workItems     WorkItem[]
+  tasks         EngineerTask[]
+  attendance    Attendance[]
+  payments      Payment[]
+  notifications Notification[]
+
+  @@index([name])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Engineer_name_trgm_idx") // forgiving search (pg_trgm)
+}
+
+model EngineerProject {
+  engineerId String
+  engineer   Engineer  @relation(fields: [engineerId], references: [id], onDelete: Cascade)
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role       String?
+  fromDate   DateTime? @db.Date
+  toDate     DateTime? @db.Date
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@id([engineerId, projectId])
+  @@index([projectId])
+}
+
+model EngineerTask {
+  id          String           @id @default(cuid())
+  engineerId  String
+  engineer    Engineer         @relation(fields: [engineerId], references: [id])
+  projectId   String
+  project     Project          @relation(fields: [projectId], references: [id])
+  workItemId  String?
+  workItem    WorkItem?        @relation(fields: [workItemId], references: [id])
+  kind        EngineerTaskKind @default(TASK)
+  title       String
+  description String?
+  dueDate     DateTime?        @db.Date
+  status      WorkStatus       @default(NOT_STARTED)
+  completedOn DateTime?        @db.Date
+  notes       String?
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@index([engineerId, status])
+  @@index([projectId, dueDate])
+}
+
+// Labour contractor / mestri who brings a gang of workers.
+model LabourContractor {
+  id        String          @id @default(cuid())
+  code      String          @unique // LC-0001
+  name      String
+  phone     String?
+  trade     LabourCategory?
+  address   String?
+  pan       String?
+  gstin     String?
+  notes     String?
+  isActive  Boolean         @default(true)
+  deletedAt DateTime?       @db.Timestamptz(3)
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime        @updatedAt @db.Timestamptz(3)
+
+  workers    Labour[]
+  workOrders WorkOrder[]
+  bills      ContractorBill[]
+  payments   Payment[]
+  workItems  WorkItem[]
+  cheques    Cheque[]
+}
+
+model Labour {
+  id                String            @id @default(cuid())
+  code              String            @unique // LB-0001
+  name              String
+  phone             String?
+  category          LabourCategory
+  contractorId      String?
+  contractor        LabourContractor? @relation(fields: [contractorId], references: [id])
+  dailyWagePaise    BigInt
+  overtimeRatePaise BigInt            @default(0) // per hour
+  address           String?
+  emergencyContact  String?
+  upiId             String?
+  joinedOn          DateTime?         @db.Date
+  notes             String?
+  isActive          Boolean           @default(true)
+  deletedAt         DateTime?         @db.Timestamptz(3)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(3)
+
+  attendance      Attendance[]
+  payments        Payment[]
+  settlementLines WageSettlementLine[]
+
+  @@index([name])
+  @@index([category])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Labour_name_trgm_idx") // forgiving search (pg_trgm)
+}
+
+// One row per person per day. Exactly one of labourId / engineerId is set
+// (enforced by a CHECK constraint). Rates are copied at the time of marking so
+// later wage changes never alter past wages.
+model Attendance {
+  id                String           @id @default(cuid())
+  date              DateTime         @db.Date
+  projectId         String
+  project           Project          @relation(fields: [projectId], references: [id])
+  siteId            String?
+  site              Site?            @relation(fields: [siteId], references: [id])
+  labourId          String?
+  labour            Labour?          @relation(fields: [labourId], references: [id])
+  engineerId        String?
+  engineer          Engineer?        @relation(fields: [engineerId], references: [id])
+  status            AttendanceStatus
+  overtimeHours     Decimal          @default(0) @db.Decimal(5, 2)
+  dailyWagePaise    BigInt           @default(0)
+  overtimeRatePaise BigInt           @default(0)
+  wagePaise         BigInt           @default(0) // calculated wage for the day
+  adjustmentPaise   BigInt           @default(0) // manual +/- adjustment
+  adjustmentReason  String?
+  workItemId        String?
+  workItem          WorkItem?        @relation(fields: [workItemId], references: [id])
+  notes             String?
+  recordedById      String
+  recordedBy        User             @relation(fields: [recordedById], references: [id])
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@unique([date, labourId])
+  @@unique([date, engineerId])
+  @@index([projectId, date])
+}
+
+model WorkOrder {
+  id               String           @id @default(cuid())
+  number           String           @unique // WO-0001
+  contractorId     String
+  contractor       LabourContractor @relation(fields: [contractorId], references: [id])
+  projectId        String
+  project          Project          @relation(fields: [projectId], references: [id])
+  workItemId       String?
+  workItem         WorkItem?        @relation(fields: [workItemId], references: [id])
+  title            String
+  description      String?
+  type             WorkOrderType
+  unit             String?
+  quantity         Decimal?         @db.Decimal(14, 3)
+  ratePaise        BigInt?
+  lumpSumPaise     BigInt?
+  retentionPercent Decimal          @default(0) @db.Decimal(5, 2)
+  tdsPercent       Decimal          @default(0) @db.Decimal(5, 2)
+  startDate        DateTime?        @db.Date
+  endDate          DateTime?        @db.Date
+  status           WorkOrderStatus  @default(OPEN)
+  notes            String?
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  bills ContractorBill[]
+
+  @@index([projectId])
+  @@index([contractorId])
+}
+
+// Bill raised by a labour contractor for work done (measurement / stage).
+model ContractorBill {
+  id                  String           @id @default(cuid())
+  number              String           @unique // CB-0001
+  contractorId        String
+  contractor          LabourContractor @relation(fields: [contractorId], references: [id])
+  projectId           String
+  project             Project          @relation(fields: [projectId], references: [id])
+  workOrderId         String?
+  workOrder           WorkOrder?       @relation(fields: [workOrderId], references: [id])
+  billDate            DateTime         @db.Date
+  periodFrom          DateTime?        @db.Date
+  periodTo            DateTime?        @db.Date
+  quantity            Decimal?         @db.Decimal(14, 3)
+  grossPaise          BigInt
+  retentionPaise      BigInt           @default(0)
+  tdsPaise            BigInt           @default(0)
+  otherDeductionPaise BigInt           @default(0)
+  deductionNote       String?
+  netPaise            BigInt
+  status              BillStatus       @default(DRAFT)
+  notes               String?
+  createdById         String
+  createdBy           User             @relation(fields: [createdById], references: [id])
+  createdAt           DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @db.Timestamptz(3)
+
+  payments Payment[]
+
+  @@index([projectId])
+  @@index([contractorId])
+}
+
+// Weekly (or any period) wage sheet. The worker's running balance is
+//   earned (attendance) − wages paid − advances given.
+// A settlement line records what was earned in the period, how much
+// outstanding advance is being recovered, and the net amount to pay.
+model WageSettlement {
+  id                   String               @id @default(cuid())
+  number               String               @unique // WS-0001
+  periodFrom           DateTime             @db.Date
+  periodTo             DateTime             @db.Date
+  projectId            String?
+  project              Project?             @relation(fields: [projectId], references: [id])
+  status               WageSettlementStatus @default(DRAFT)
+  totalGrossPaise      BigInt               @default(0)
+  totalDeductionsPaise BigInt               @default(0)
+  totalNetPaise        BigInt               @default(0)
+  notes                String?
+  finalisedAt          DateTime?            @db.Timestamptz(3)
+  createdById          String
+  createdBy            User                 @relation(fields: [createdById], references: [id])
+  createdAt            DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime             @updatedAt @db.Timestamptz(3)
+
+  lines WageSettlementLine[]
+}
+
+model WageSettlementLine {
+  id                   String         @id @default(cuid())
+  settlementId         String
+  settlement           WageSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  labourId             String
+  labour               Labour         @relation(fields: [labourId], references: [id])
+  daysPresent          Decimal        @db.Decimal(5, 1)
+  overtimeHours        Decimal        @default(0) @db.Decimal(6, 2)
+  grossPaise           BigInt
+  advanceDeductedPaise BigInt         @default(0)
+  otherDeductionPaise  BigInt         @default(0)
+  deductionNote        String?
+  netPaise             BigInt
+
+  payments Payment[]
+
+  @@unique([settlementId, labourId])
+}

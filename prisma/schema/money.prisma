@@ -1,0 +1,464 @@
+// Bank / cash accounts, the money ledger, payments, quotations, client bills
+// and expenses.
+//
+// Every movement of money writes exactly one BankTransaction (two for a
+// transfer). Ledger amounts are SIGNED: positive = money in, negative = money out.
+// Account balance = openingBalancePaise + Σ BankTransaction.amountPaise.
+
+enum AccountKind {
+  BANK
+  CASH // office cash box
+  SITE_CASH // petty cash held by a manager / site
+}
+
+enum LedgerSource {
+  CLIENT_PAYMENT
+  PAYMENT
+  EXPENSE
+  OTHER_INCOME
+  TRANSFER
+}
+
+enum PayeeType {
+  SUPPLIER
+  LABOUR
+  ENGINEER
+  CONTRACTOR
+  OTHER
+}
+
+enum PaymentPurpose {
+  PURCHASE // against a supplier purchase
+  WAGES
+  SALARY
+  ADVANCE
+  CONTRACTOR_BILL
+  OTHER
+}
+
+enum ChequeDirection {
+  RECEIVED
+  ISSUED
+}
+
+enum ChequeStatus {
+  RECEIVED // in hand (may be post-dated)
+  DEPOSITED
+  CLEARED
+  BOUNCED
+  CANCELLED
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum InvoiceKind {
+  RUNNING // RA bill
+  FINAL
+  ADVANCE
+  RETENTION_RELEASE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
+model BankAccount {
+  id                  String      @id @default(cuid())
+  kind                AccountKind
+  name                String // display name, e.g. "HDFC Current"
+  bankName            String?
+  accountHolderName   String?
+  accountType         String? // Current / Savings / OD / CC
+  // Only the last 4 digits are stored. Full account numbers are never kept.
+  accountNumberLast4  String?
+  ifsc                String?
+  branch              String?
+  upiId               String?
+  holderUserId        String? // SITE_CASH: the manager holding the cash
+  holder              User?       @relation("SiteCashHolder", fields: [holderUserId], references: [id])
+  projectId           String? // SITE_CASH: the project the cash is for
+  project             Project?    @relation(fields: [projectId], references: [id])
+  openingBalancePaise BigInt      @default(0)
+  openingDate         DateTime    @db.Date
+  isActive            Boolean     @default(true)
+  notes               String?
+  closedAt            DateTime?   @db.Timestamptz(3)
+  createdAt           DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime    @updatedAt @db.Timestamptz(3)
+
+  transactions   BankTransaction[]
+  payments       Payment[]
+  clientPayments ClientPayment[]
+  expenses       Expense[]
+  otherIncome    OtherIncome[]
+  transfersOut   AccountTransfer[] @relation("TransferFrom")
+  transfersIn    AccountTransfer[] @relation("TransferTo")
+  cheques        Cheque[]
+}
+
+model BankTransaction {
+  id              String           @id @default(cuid())
+  accountId       String
+  account         BankAccount      @relation(fields: [accountId], references: [id])
+  date            DateTime         @db.Date
+  amountPaise     BigInt // signed: + in, − out
+  source          LedgerSource
+  description     String
+  reference       String? // UTR / UPI ref / cheque no.
+  clientPaymentId String?          @unique
+  clientPayment   ClientPayment?   @relation(fields: [clientPaymentId], references: [id])
+  paymentId       String?          @unique
+  payment         Payment?         @relation(fields: [paymentId], references: [id])
+  expenseId       String?          @unique
+  expense         Expense?         @relation(fields: [expenseId], references: [id])
+  otherIncomeId   String?          @unique
+  otherIncome     OtherIncome?     @relation(fields: [otherIncomeId], references: [id])
+  transferId      String?
+  transfer        AccountTransfer? @relation(fields: [transferId], references: [id])
+  projectId       String? // copied for fast project cash-flow queries
+  reconciledAt    DateTime?        @db.Timestamptz(3)
+  reconciledById  String?
+  reconciledBy    User?            @relation("LedgerReconciledBy", fields: [reconciledById], references: [id])
+  statementRef    String?
+  createdById     String
+  createdBy       User             @relation("LedgerCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@index([accountId, date])
+  @@index([projectId, date])
+  @@index([date])
+}
+
+// Moving money between own accounts, e.g. bank → site cash.
+model AccountTransfer {
+  id             String           @id @default(cuid())
+  date           DateTime         @db.Date
+  fromAccountId  String
+  fromAccount    BankAccount      @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId    String
+  toAccount      BankAccount      @relation("TransferTo", fields: [toAccountId], references: [id])
+  amountPaise    BigInt // signed; a reversal carries a negative amount
+  reference      String?
+  notes          String?
+  reversalOfId   String?          @unique
+  reversalOf     AccountTransfer? @relation("TransferReversal", fields: [reversalOfId], references: [id])
+  reversedBy     AccountTransfer? @relation("TransferReversal")
+  reversalReason String?
+  createdById    String
+  createdBy      User             @relation(fields: [createdById], references: [id])
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+
+  ledgerEntries BankTransaction[]
+}
+
+// Money paid OUT to a supplier, worker, engineer, contractor or anyone else.
+// Exactly one payee FK matches payeeType (CHECK constraint).
+model Payment {
+  id                   String              @id @default(cuid())
+  number               String              @unique // PAY-0001
+  date                 DateTime            @db.Date
+  amountPaise          BigInt // positive; reversal rows are negative
+  payeeType            PayeeType
+  supplierId           String?
+  supplier             Supplier?           @relation(fields: [supplierId], references: [id])
+  labourId             String?
+  labour               Labour?             @relation(fields: [labourId], references: [id])
+  engineerId           String?
+  engineer             Engineer?           @relation(fields: [engineerId], references: [id])
+  contractorId         String?
+  contractor           LabourContractor?   @relation(fields: [contractorId], references: [id])
+  payeeName            String? // for OTHER
+  purpose              PaymentPurpose
+  projectId            String?
+  project              Project?            @relation(fields: [projectId], references: [id])
+  purchaseId           String?
+  purchase             Purchase?           @relation(fields: [purchaseId], references: [id])
+  contractorBillId     String?
+  contractorBill       ContractorBill?     @relation(fields: [contractorBillId], references: [id])
+  wageSettlementLineId String?
+  wageSettlementLine   WageSettlementLine? @relation(fields: [wageSettlementLineId], references: [id])
+  method               PaymentMethod
+  accountId            String
+  account              BankAccount         @relation(fields: [accountId], references: [id])
+  reference            String?
+  chequeId             String?
+  cheque               Cheque?             @relation(fields: [chequeId], references: [id])
+  notes                String?
+  reversalOfId         String?             @unique
+  reversalOf           Payment?            @relation("PaymentReversal", fields: [reversalOfId], references: [id])
+  reversedBy           Payment?            @relation("PaymentReversal")
+  reversalReason       String?
+  createdById          String
+  createdBy            User                @relation(fields: [createdById], references: [id])
+  createdAt            DateTime            @default(now()) @db.Timestamptz(3)
+
+  ledgerEntry BankTransaction?
+
+  @@index([projectId, date])
+  @@index([supplierId])
+  @@index([labourId])
+  @@index([engineerId])
+  @@index([contractorId])
+  @@index([purchaseId])
+}
+
+// Money received from a client.
+model ClientPayment {
+  id               String         @id @default(cuid())
+  receiptNumber    String         @unique // RCPT-0001
+  date             DateTime       @db.Date
+  amountPaise      BigInt // cash actually received; reversal rows are negative
+  tdsDeductedPaise BigInt         @default(0) // TDS withheld by the client (still settles the bill)
+  clientId         String
+  client           Client         @relation(fields: [clientId], references: [id])
+  projectId        String
+  project          Project        @relation(fields: [projectId], references: [id])
+  invoiceId        String?
+  invoice          Invoice?       @relation(fields: [invoiceId], references: [id])
+  milestone        String?
+  method           PaymentMethod
+  accountId        String
+  account          BankAccount    @relation(fields: [accountId], references: [id])
+  reference        String?
+  chequeId         String?
+  cheque           Cheque?        @relation(fields: [chequeId], references: [id])
+  notes            String?
+  reversalOfId     String?        @unique
+  reversalOf       ClientPayment? @relation("ClientPaymentReversal", fields: [reversalOfId], references: [id])
+  reversedBy       ClientPayment? @relation("ClientPaymentReversal")
+  reversalReason   String?
+  createdById      String
+  createdBy        User           @relation(fields: [createdById], references: [id])
+  createdAt        DateTime       @default(now()) @db.Timestamptz(3)
+
+  ledgerEntry BankTransaction?
+
+  @@index([projectId, date])
+  @@index([clientId])
+  @@index([invoiceId])
+}
+
+// Income that is not a client payment (scrap sale, rent received, refunds…).
+model OtherIncome {
+  id             String        @id @default(cuid())
+  number         String        @unique // INC-0001
+  date           DateTime      @db.Date
+  amountPaise    BigInt
+  source         String
+  projectId      String?
+  project        Project?      @relation(fields: [projectId], references: [id])
+  method         PaymentMethod
+  accountId      String
+  account        BankAccount   @relation(fields: [accountId], references: [id])
+  reference      String?
+  notes          String?
+  reversalOfId   String?       @unique
+  reversalOf     OtherIncome?  @relation("OtherIncomeReversal", fields: [reversalOfId], references: [id])
+  reversedBy     OtherIncome?  @relation("OtherIncomeReversal")
+  reversalReason String?
+  createdById    String
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+
+  ledgerEntry BankTransaction?
+}
+
+// Cheques received from clients or issued to suppliers/contractors.
+// A received cheque becomes a ClientPayment only when it CLEARS.
+model Cheque {
+  id           String            @id @default(cuid())
+  direction    ChequeDirection
+  chequeNumber String
+  bankName     String?
+  chequeDate   DateTime          @db.Date // may be in the future (post-dated)
+  amountPaise  BigInt
+  status       ChequeStatus      @default(RECEIVED)
+  partyName    String
+  clientId     String?
+  client       Client?           @relation(fields: [clientId], references: [id])
+  supplierId   String?
+  supplier     Supplier?         @relation(fields: [supplierId], references: [id])
+  contractorId String?
+  contractor   LabourContractor? @relation(fields: [contractorId], references: [id])
+  projectId    String?
+  project      Project?          @relation(fields: [projectId], references: [id])
+  accountId    String?
+  account      BankAccount?      @relation(fields: [accountId], references: [id])
+  depositedOn  DateTime?         @db.Date
+  clearedOn    DateTime?         @db.Date
+  bouncedOn    DateTime?         @db.Date
+  bounceReason String?
+  notes        String?
+  createdAt    DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime          @updatedAt @db.Timestamptz(3)
+
+  clientPayments ClientPayment[]
+  payments       Payment[]
+
+  @@index([status, chequeDate])
+}
+
+model Quotation {
+  id            String          @id @default(cuid())
+  number        String          @unique // QT-0001
+  clientId      String
+  client        Client          @relation(fields: [clientId], references: [id])
+  projectId     String?
+  project       Project?        @relation(fields: [projectId], references: [id])
+  title         String
+  date          DateTime        @db.Date
+  validUntil    DateTime?       @db.Date
+  status        QuotationStatus @default(DRAFT)
+  taxMode       TaxMode         @default(NONE)
+  taxPercent    Decimal         @default(0) @db.Decimal(5, 2)
+  subtotalPaise BigInt          @default(0)
+  discountPaise BigInt          @default(0)
+  taxPaise      BigInt          @default(0)
+  totalPaise    BigInt          @default(0)
+  terms         String?
+  notes         String?
+  revisionOfId  String?
+  revisionOf    Quotation?      @relation("QuotationRevision", fields: [revisionOfId], references: [id])
+  revisions     Quotation[]     @relation("QuotationRevision")
+  sentAt        DateTime?       @db.Timestamptz(3)
+  decidedAt     DateTime?       @db.Timestamptz(3)
+  createdById   String
+  createdBy     User            @relation(fields: [createdById], references: [id])
+  deletedAt     DateTime?       @db.Timestamptz(3)
+  createdAt     DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(3)
+
+  items QuotationItem[]
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model QuotationItem {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  sortOrder   Int       @default(0)
+  section     String? // group heading, e.g. "Foundation"
+  description String
+  quantity    Decimal   @db.Decimal(14, 3)
+  unit        String
+  ratePaise   BigInt
+  amountPaise BigInt
+  hsnSac      String?
+}
+
+// Bill raised to the client (running account bill, final bill…).
+model Invoice {
+  id             String        @id @default(cuid())
+  number         String        @unique // INV-0001
+  kind           InvoiceKind   @default(RUNNING)
+  raNumber       Int? // RA bill sequence within the project
+  projectId      String
+  project        Project       @relation(fields: [projectId], references: [id])
+  clientId       String
+  client         Client        @relation(fields: [clientId], references: [id])
+  date           DateTime      @db.Date
+  dueDate        DateTime?     @db.Date
+  periodFrom     DateTime?     @db.Date
+  periodTo       DateTime?     @db.Date
+  milestone      String?
+  taxMode        TaxMode       @default(NONE)
+  taxPercent     Decimal       @default(0) @db.Decimal(5, 2)
+  subtotalPaise  BigInt        @default(0)
+  taxPaise       BigInt        @default(0)
+  totalPaise     BigInt        @default(0)
+  retentionPaise BigInt        @default(0) // held back by the client
+  status         InvoiceStatus @default(DRAFT)
+  notes          String?
+  cancelledAt    DateTime?     @db.Timestamptz(3)
+  cancelReason   String?
+  createdById    String
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+
+  items          InvoiceItem[]
+  clientPayments ClientPayment[]
+
+  @@index([projectId, date])
+  @@index([clientId])
+  @@index([status, dueDate])
+}
+
+model InvoiceItem {
+  id          String     @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  sortOrder   Int        @default(0)
+  description String
+  quantity    Decimal    @db.Decimal(14, 3)
+  unit        String
+  ratePaise   BigInt
+  amountPaise BigInt
+  hsnSac      String?
+  workItemId  String?
+  workItem    WorkItem?  @relation(fields: [workItemId], references: [id])
+  variationId String?
+  variation   Variation? @relation(fields: [variationId], references: [id])
+}
+
+model ExpenseCategory {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  group     CostGroup
+  isWelfare Boolean   @default(false) // labour food / water / stay / travel
+  isSystem  Boolean   @default(false)
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  expenses Expense[]
+}
+
+model Expense {
+  id             String          @id @default(cuid())
+  number         String          @unique // EXP-0001
+  date           DateTime        @db.Date
+  projectId      String?
+  project        Project?        @relation(fields: [projectId], references: [id])
+  siteId         String?
+  site           Site?           @relation(fields: [siteId], references: [id])
+  categoryId     String
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id])
+  description    String
+  amountPaise    BigInt // positive; reversal rows are negative
+  quantity       Decimal?        @db.Decimal(14, 3) // e.g. 40 lunches
+  unit           String?
+  method         PaymentMethod
+  accountId      String
+  account        BankAccount     @relation(fields: [accountId], references: [id])
+  paidTo         String?
+  reference      String?
+  workItemId     String?
+  workItem       WorkItem?       @relation(fields: [workItemId], references: [id])
+  equipmentId    String?
+  equipment      Equipment?      @relation(fields: [equipmentId], references: [id])
+  notes          String?
+  reversalOfId   String?         @unique
+  reversalOf     Expense?        @relation("ExpenseReversal", fields: [reversalOfId], references: [id])
+  reversedBy     Expense?        @relation("ExpenseReversal")
+  reversalReason String?
+  createdById    String
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+
+  ledgerEntry BankTransaction?
+
+  @@index([projectId, date])
+  @@index([categoryId])
+  @@index([date])
+}

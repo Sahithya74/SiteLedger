@@ -1,0 +1,286 @@
+// Clients, projects, sites and the work breakdown.
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  DELAYED
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectType {
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  RENOVATION
+  INTERIOR
+  INFRASTRUCTURE
+  OTHER
+}
+
+enum WorkStatus {
+  NOT_STARTED
+  PLANNING
+  IN_PROGRESS
+  DELAYED
+  COMPLETED
+  ON_HOLD
+}
+
+enum VariationStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+// Budget heads used for project budgets and expense categories.
+enum CostGroup {
+  MATERIALS
+  LABOUR
+  ENGINEERS
+  CONTRACTORS
+  TRANSPORT
+  FOOD_WELFARE
+  EQUIPMENT
+  RENT
+  ELECTRICITY
+  OTHER
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  code      String    @unique // CL-0001
+  name      String
+  phone     String?
+  altPhone  String?
+  email     String?
+  address   String?
+  city      String?
+  gstin     String?
+  pan       String?
+  notes     String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  projects       Project[]
+  quotations     Quotation[]
+  invoices       Invoice[]
+  clientPayments ClientPayment[]
+  cheques        Cheque[]
+
+  @@index([name])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Client_name_trgm_idx") // forgiving search (pg_trgm)
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  code            String        @unique // PRJ-0001
+  name            String
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  type            ProjectType
+  status          ProjectStatus @default(PLANNING)
+  description     String?
+  address         String?
+  city            String?
+  state           String?
+  pincode         String?
+  latitude        Float?
+  longitude       Float?
+  mapUrl          String?
+  startDate       DateTime?     @db.Date
+  expectedEndDate DateTime?     @db.Date
+  actualEndDate   DateTime?     @db.Date
+  quotedPaise     BigInt        @default(0)
+  // Final agreed contract value. Approved variations are added on top.
+  contractPaise   BigInt        @default(0)
+  statusNote      String? // e.g. reason for hold / delay
+  archivedAt      DateTime?     @db.Timestamptz(3)
+  deletedAt       DateTime?     @db.Timestamptz(3)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+
+  sites                 Site[]
+  workItems             WorkItem[]
+  assignments           ProjectAssignment[]
+  budgets               ProjectBudget[]
+  variations            Variation[]
+  issues                Issue[]
+  engineerProjects      EngineerProject[]
+  engineerTasks         EngineerTask[]
+  attendance            Attendance[]
+  workOrders            WorkOrder[]
+  contractorBills       ContractorBill[]
+  wageSettlements       WageSettlement[]
+  inventoryTransactions InventoryTransaction[]
+  materialRequests      MaterialRequest[]
+  supplierProjects      SupplierProject[]
+  purchases             Purchase[]
+  payments              Payment[]
+  clientPayments        ClientPayment[]
+  quotations            Quotation[]
+  invoices              Invoice[]
+  expenses              Expense[]
+  otherIncome           OtherIncome[]
+  cheques               Cheque[]
+  siteCashAccounts      BankAccount[]
+  equipmentUsage        EquipmentUsage[]
+  equipmentOnSite       Equipment[]
+  dailyReports          DailyReport[]
+  notifications         Notification[]
+  documents             Document[]
+
+  @@index([status])
+  @@index([clientId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Project_name_trgm_idx") // forgiving search (pg_trgm)
+}
+
+// A project has one or more sites. One default site is created with the project.
+model Site {
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id])
+  name       String
+  address    String?
+  latitude   Float?
+  longitude  Float?
+  isDefault  Boolean   @default(false)
+  archivedAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
+
+  workItems             WorkItem[]
+  issues                Issue[]
+  attendance            Attendance[]
+  inventoryTransactions InventoryTransaction[]
+  materialRequests      MaterialRequest[]
+  purchases             Purchase[]
+  expenses              Expense[]
+  dailyReports          DailyReport[]
+
+  @@index([projectId])
+}
+
+// Work breakdown: a phase (parentId = null) contains work items.
+model WorkItem {
+  id                 String            @id @default(cuid())
+  projectId          String
+  project            Project           @relation(fields: [projectId], references: [id])
+  siteId             String?
+  site               Site?             @relation(fields: [siteId], references: [id])
+  parentId           String?
+  parent             WorkItem?         @relation("WorkTree", fields: [parentId], references: [id])
+  children           WorkItem[]        @relation("WorkTree")
+  name               String
+  description        String?
+  sortOrder          Int               @default(0)
+  status             WorkStatus        @default(NOT_STARTED)
+  priority           Priority          @default(MEDIUM)
+  percentComplete    Int               @default(0)
+  engineerId         String?
+  engineer           Engineer?         @relation(fields: [engineerId], references: [id])
+  contractorId       String?
+  contractor         LabourContractor? @relation(fields: [contractorId], references: [id])
+  team               String? // free text, e.g. "Ravi's mason gang (6)"
+  startDate          DateTime?         @db.Date
+  expectedEndDate    DateTime?         @db.Date
+  actualEndDate      DateTime?         @db.Date
+  estimatedCostPaise BigInt            @default(0)
+  actualCostPaise    BigInt            @default(0)
+  pendingReason      String?
+  notes              String?
+  deletedAt          DateTime?         @db.Timestamptz(3)
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
+
+  dependsOn     WorkItemDependency[]   @relation("Dependent")
+  requiredBy    WorkItemDependency[]   @relation("Prerequisite")
+  engineerTasks EngineerTask[]
+  issues        Issue[]
+  attendance    Attendance[]
+  workOrders    WorkOrder[]
+  inventoryTxns InventoryTransaction[]
+  expenses      Expense[]
+  invoiceItems  InvoiceItem[]
+  equipmentUse  EquipmentUsage[]
+
+  @@index([projectId, status])
+  @@index([expectedEndDate])
+  @@index([parentId])
+}
+
+model WorkItemDependency {
+  workItemId  String
+  workItem    WorkItem @relation("Dependent", fields: [workItemId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   WorkItem @relation("Prerequisite", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@id([workItemId, dependsOnId])
+}
+
+model ProjectBudget {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  group       CostGroup
+  budgetPaise BigInt    @default(0)
+  notes       String?
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@unique([projectId, group])
+}
+
+// Extra work / variations agreed with the client. Approved variations
+// increase (or reduce, when negative) the contract value.
+model Variation {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id])
+  number      Int
+  title       String
+  description String?
+  amountPaise BigInt
+  status      VariationStatus @default(PROPOSED)
+  requestedOn DateTime        @db.Date
+  decidedOn   DateTime?       @db.Date
+  notes       String?
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+
+  invoiceItems InvoiceItem[]
+
+  @@unique([projectId, number])
+}
+
+// Site issues (problems reported on site).
+model Issue {
+  id           String      @id @default(cuid())
+  projectId    String
+  project      Project     @relation(fields: [projectId], references: [id])
+  siteId       String?
+  site         Site?       @relation(fields: [siteId], references: [id])
+  workItemId   String?
+  workItem     WorkItem?   @relation(fields: [workItemId], references: [id])
+  title        String
+  description  String?
+  severity     Priority    @default(MEDIUM)
+  status       IssueStatus @default(OPEN)
+  reportedOn   DateTime    @db.Date
+  resolvedOn   DateTime?   @db.Date
+  assignedTo   String?
+  resolution   String?
+  reportedById String
+  reportedBy   User        @relation(fields: [reportedById], references: [id])
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
+
+  @@index([projectId, status])
+}

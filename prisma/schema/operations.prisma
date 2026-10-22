@@ -1,0 +1,128 @@
+// Equipment and daily site reports.
+
+enum EquipmentType {
+  CONCRETE_MIXER
+  VIBRATOR
+  DRILLING_MACHINE
+  CUTTING_MACHINE
+  EXCAVATOR
+  JCB
+  CRANE
+  GENERATOR
+  OTHER
+}
+
+enum Ownership {
+  OWNED
+  RENTED
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  IN_USE
+  UNDER_MAINTENANCE
+  OUT_OF_ORDER
+  RETURNED // rented equipment sent back
+}
+
+enum RentalUnit {
+  HOUR
+  DAY
+  MONTH
+}
+
+enum Weather {
+  SUNNY
+  CLOUDY
+  RAINY
+  HEAVY_RAIN
+  OTHER
+}
+
+model Equipment {
+  id                String          @id @default(cuid())
+  code              String          @unique // EQ-0001
+  name              String
+  type              EquipmentType
+  ownership         Ownership
+  supplierId        String? // rental vendor
+  supplier          Supplier?       @relation(fields: [supplierId], references: [id])
+  rentalRatePaise   BigInt?
+  rentalUnit        RentalUnit?
+  registrationNo    String?
+  purchaseDate      DateTime?       @db.Date
+  purchaseCostPaise BigInt?
+  status            EquipmentStatus @default(AVAILABLE)
+  currentProjectId  String?
+  currentProject    Project?        @relation(fields: [currentProjectId], references: [id])
+  operatorName      String?
+  notes             String?
+  deletedAt         DateTime?       @db.Timestamptz(3)
+  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
+
+  usage       EquipmentUsage[]
+  maintenance EquipmentMaintenance[]
+  expenses    Expense[] // rent, fuel and repair costs are recorded as expenses
+}
+
+// Hours / fuel used per day. Costs are recorded as expenses (linked by
+// equipmentId) so project costs are never counted twice.
+model EquipmentUsage {
+  id           String    @id @default(cuid())
+  equipmentId  String
+  equipment    Equipment @relation(fields: [equipmentId], references: [id])
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id])
+  date         DateTime  @db.Date
+  hours        Decimal?  @db.Decimal(6, 2)
+  fuelLitres   Decimal?  @db.Decimal(8, 2)
+  operatorName String?
+  workItemId   String?
+  workItem     WorkItem? @relation(fields: [workItemId], references: [id])
+  notes        String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([projectId, date])
+  @@index([equipmentId, date])
+}
+
+model EquipmentMaintenance {
+  id          String    @id @default(cuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  date        DateTime  @db.Date
+  description String
+  nextDueDate DateTime? @db.Date
+  notes       String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+}
+
+model DailyReport {
+  id                 String   @id @default(cuid())
+  projectId          String
+  project            Project  @relation(fields: [projectId], references: [id])
+  siteId             String
+  site               Site     @relation(fields: [siteId], references: [id])
+  date               DateTime @db.Date
+  weather            Weather  @default(SUNNY)
+  weatherNote        String?
+  labourPresent      Int      @default(0)
+  engineersPresent   Int      @default(0)
+  workCompleted      String
+  materialsReceived  String?
+  materialsUsed      String?
+  equipmentUsed      String?
+  issues             String?
+  safetyObservations String?
+  notes              String?
+  submittedById      String
+  submittedBy        User     @relation(fields: [submittedById], references: [id])
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+
+  inventoryTransactions InventoryTransaction[]
+
+  @@unique([siteId, date])
+  @@index([projectId, date])
+}

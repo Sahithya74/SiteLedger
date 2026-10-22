@@ -1,0 +1,74 @@
+// SITECORE database schema — shared configuration and enums.
+//
+// Conventions used across every schema file:
+// - Money is stored as BigInt in PAISE (₹1 = 100 paise). Field names end in `Paise`.
+// - Quantities use Decimal(14,3). Percentages use Decimal(5,2).
+// - Business dates (payment date, attendance date…) are `@db.Date` and are
+//   interpreted in Asia/Kolkata. Timestamps are `@db.Timestamptz(3)`.
+// - Financial records (payments, expenses, ledger entries) are append-only.
+//   Corrections are made with reversal rows that carry a negative amount and
+//   `reversalOfId`. Database triggers (see migrations) block deletes/edits.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  UPI
+  CHEQUE
+  CASH
+  OTHER
+}
+
+enum TaxMode {
+  NONE
+  CGST_SGST // intra-state: tax split equally between CGST and SGST
+  IGST // inter-state
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  ARCHIVE
+  RESTORE
+  STATUS_CHANGE
+  REVERSE
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_CHANGE
+  PERMISSION_CHANGE
+  EXPORT
+  LOCK_PERIOD
+}
+
+// Simple counter table used to generate friendly numbers such as PRJ-0007.
+model Sequence {
+  name  String @id
+  value Int    @default(0)
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}

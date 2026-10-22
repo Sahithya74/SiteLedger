@@ -1,0 +1,271 @@
+// Materials, stock, suppliers and purchases.
+
+enum MaterialKind {
+  AGGREGATE
+  CEMENT
+  STEEL
+  BRICK_BLOCK
+  STONE_GRANITE
+  TILES
+  ELECTRICAL
+  PLUMBING
+  PAINT
+  WOOD
+  HARDWARE
+  OTHER
+}
+
+enum InventoryTxnType {
+  OPENING
+  PURCHASE
+  USAGE
+  TRANSFER_IN
+  TRANSFER_OUT
+  DAMAGE
+  RETURN // returned to supplier
+  ADJUSTMENT // signed quantity correction after a stock check
+}
+
+enum MaterialRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
+enum SupplierCategory {
+  HARDWARE
+  CEMENT
+  STEEL
+  SAND
+  STONE
+  GRANITE
+  TILES
+  ELECTRICAL
+  PLUMBING
+  PAINT
+  TRANSPORT
+  EQUIPMENT_RENTAL
+  OTHER
+}
+
+enum DeliveryStatus {
+  ORDERED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CANCELLED
+}
+
+model MaterialCategory {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  kind      MaterialKind
+  sortOrder Int          @default(0)
+  isSystem  Boolean      @default(false)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+
+  materials Material[]
+}
+
+model Material {
+  id               String           @id @default(cuid())
+  code             String           @unique // MAT-0001
+  name             String // e.g. "Cement – UltraTech OPC 53"
+  categoryId       String
+  category         MaterialCategory @relation(fields: [categoryId], references: [id])
+  unit             String // bag, kg, tonne, cft, cum, nos, sqft, load…
+  // Brand / grade / size (mm) / colour / thickness / finish / type — varies by category.
+  specs            Json?
+  reorderLevel     Decimal          @default(0) @db.Decimal(14, 3)
+  defaultRatePaise BigInt?
+  notes            String?
+  isActive         Boolean          @default(true)
+  deletedAt        DateTime?        @db.Timestamptz(3)
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  inventoryTransactions InventoryTransaction[]
+  requestItems          MaterialRequestItem[]
+  purchaseItems         PurchaseItem[]
+
+  @@index([categoryId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Material_name_trgm_idx") // forgiving search (pg_trgm)
+}
+
+// Stock ledger. Quantity is always positive; `type` decides the direction,
+// except ADJUSTMENT which carries a signed quantity.
+// Location = project + site, or the main store when projectId is null.
+model InventoryTransaction {
+  id              String           @id @default(cuid())
+  date            DateTime         @db.Date
+  materialId      String
+  material        Material         @relation(fields: [materialId], references: [id])
+  projectId       String?
+  project         Project?         @relation(fields: [projectId], references: [id])
+  siteId          String?
+  site            Site?            @relation(fields: [siteId], references: [id])
+  type            InventoryTxnType
+  quantity        Decimal          @db.Decimal(14, 3)
+  unitCostPaise   BigInt? // valuation for OPENING / PURCHASE
+  purchaseItemId  String?
+  purchaseItem    PurchaseItem?    @relation(fields: [purchaseItemId], references: [id])
+  transferGroupId String? // pairs TRANSFER_OUT with TRANSFER_IN
+  workItemId      String?
+  workItem        WorkItem?        @relation(fields: [workItemId], references: [id])
+  dailyReportId   String?
+  dailyReport     DailyReport?     @relation(fields: [dailyReportId], references: [id])
+  notes           String?
+  recordedById    String
+  recordedBy      User             @relation(fields: [recordedById], references: [id])
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@index([materialId, projectId])
+  @@index([projectId, date])
+  @@index([transferGroupId])
+}
+
+model MaterialRequest {
+  id            String                @id @default(cuid())
+  number        String                @unique // MR-0001
+  projectId     String
+  project       Project               @relation(fields: [projectId], references: [id])
+  siteId        String?
+  site          Site?                 @relation(fields: [siteId], references: [id])
+  requestedOn   DateTime              @db.Date
+  neededBy      DateTime?             @db.Date
+  priority      Priority              @default(MEDIUM)
+  status        MaterialRequestStatus @default(PENDING)
+  notes         String?
+  decisionNote  String?
+  decidedAt     DateTime?             @db.Timestamptz(3)
+  requestedById String
+  requestedBy   User                  @relation("MaterialRequestedBy", fields: [requestedById], references: [id])
+  decidedById   String?
+  decidedBy     User?                 @relation("MaterialDecidedBy", fields: [decidedById], references: [id])
+  createdAt     DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime              @updatedAt @db.Timestamptz(3)
+
+  items     MaterialRequestItem[]
+  purchases Purchase[]
+
+  @@index([projectId, status])
+}
+
+model MaterialRequestItem {
+  id         String          @id @default(cuid())
+  requestId  String
+  request    MaterialRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material        @relation(fields: [materialId], references: [id])
+  quantity   Decimal         @db.Decimal(14, 3)
+  notes      String?
+}
+
+model Supplier {
+  id                String             @id @default(cuid())
+  code              String             @unique // SUP-0001
+  name              String
+  categories        SupplierCategory[]
+  contactPerson     String?
+  phone             String?
+  altPhone          String?
+  email             String?
+  address           String?
+  city              String?
+  latitude          Float?
+  longitude         Float?
+  gstin             String?
+  pan               String?
+  materialsSupplied String?
+  priceRangeNote    String?
+  paymentTerms      String?
+  creditDays        Int?
+  rating            Int? // 1–5
+  notes             String?
+  isActive          Boolean            @default(true)
+  deletedAt         DateTime?          @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
+
+  projects  SupplierProject[]
+  purchases Purchase[]
+  payments  Payment[]
+  cheques   Cheque[]
+  equipment Equipment[]
+
+  @@index([name])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Supplier_name_trgm_idx") // forgiving search (pg_trgm)
+}
+
+model SupplierProject {
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([supplierId, projectId])
+}
+
+// A purchase is what the business owes a supplier. Payment status
+// (paid / partly paid / pending) is calculated from linked payments.
+model Purchase {
+  id                String           @id @default(cuid())
+  number            String           @unique // PO-0001
+  supplierId        String
+  supplier          Supplier         @relation(fields: [supplierId], references: [id])
+  projectId         String?
+  project           Project?         @relation(fields: [projectId], references: [id])
+  siteId            String?
+  site              Site?            @relation(fields: [siteId], references: [id])
+  materialRequestId String?
+  materialRequest   MaterialRequest? @relation(fields: [materialRequestId], references: [id])
+  purchaseDate      DateTime         @db.Date
+  expectedDelivery  DateTime?        @db.Date
+  actualDelivery    DateTime?        @db.Date
+  deliveryStatus    DeliveryStatus   @default(ORDERED)
+  invoiceNumber     String?
+  invoiceDate       DateTime?        @db.Date
+  subtotalPaise     BigInt
+  taxPaise          BigInt           @default(0)
+  transportPaise    BigInt           @default(0)
+  otherChargesPaise BigInt           @default(0)
+  discountPaise     BigInt           @default(0)
+  totalPaise        BigInt
+  dueDate           DateTime?        @db.Date
+  notes             String?
+  cancelledAt       DateTime?        @db.Timestamptz(3)
+  cancelReason      String?
+  createdById       String
+  createdBy         User             @relation(fields: [createdById], references: [id])
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
+
+  items    PurchaseItem[]
+  payments Payment[]
+
+  @@index([supplierId])
+  @@index([projectId, purchaseDate])
+  @@index([expectedDelivery])
+}
+
+model PurchaseItem {
+  id               String   @id @default(cuid())
+  purchaseId       String
+  purchase         Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  materialId       String
+  material         Material @relation(fields: [materialId], references: [id])
+  quantity         Decimal  @db.Decimal(14, 3)
+  unit             String
+  weightKg         Decimal? @db.Decimal(14, 3) // steel: actual weighed quantity
+  ratePaise        BigInt
+  taxPercent       Decimal  @default(0) @db.Decimal(5, 2)
+  taxPaise         BigInt   @default(0)
+  amountPaise      BigInt // quantity × rate (before tax)
+  hsnCode          String?
+  receivedQuantity Decimal  @default(0) @db.Decimal(14, 3)
+
+  inventoryTransactions InventoryTransaction[]
+}
