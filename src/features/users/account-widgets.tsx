@@ -2,20 +2,9 @@
 
 import { LogOut, MonitorSmartphone } from "lucide-react";
 import { ConfirmAction } from "@/components/app/confirm-action";
-import { FormError, SubmitButton, TextField, useActionForm } from "@/components/app/form";
+import { ActionForm, FormGrid, TextAreaField, TextField } from "@/components/app/form";
 import { Button } from "@/components/ui/button";
-import { companyNameAction, endSessionAction, signOutEverywhereAction } from "./actions";
-
-export function CompanyNameForm({ name }: { name: string }) {
-  const { onSubmit, pending, fieldErrors: e, formError } = useActionForm(companyNameAction);
-  return (
-    <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-3 sm:flex-row sm:items-end">
-      <FormError message={Object.keys(e).length ? null : formError} />
-      <TextField label="Company name" name="companyName" defaultValue={name} error={e.companyName} fieldClassName="flex-1" required />
-      <SubmitButton pending={pending}>Save</SubmitButton>
-    </form>
-  );
-}
+import { companyProfileAction, endSessionAction, signOutEverywhereAction } from "./actions";
 
 export type SessionRow = {
   id: string;
@@ -78,3 +67,38 @@ export function SessionsList({ sessions, showWho }: { sessions: SessionRow[]; sh
     </div>
   );
 }
+
+/** Company details printed on quotations, bills and receipts. */
+export function CompanyProfileForm({ profile }: { profile: CompanyProfileValues }) {
+  return (
+    <ActionForm action={companyProfileAction} submitLabel="Save company details" className="max-w-3xl">
+      <FormGrid>
+        <TextField label="Company name" name="name" defaultValue={profile.name} required />
+        <TextField label="Phone" name="phone" defaultValue={profile.phone ?? ""} inputMode="tel" />
+        <TextAreaField label="Address" name="address" rows={2} defaultValue={profile.address ?? ""} fieldClassName="sm:col-span-2" />
+        <TextField label="Email" name="email" type="email" defaultValue={profile.email ?? ""} />
+        <TextField label="GSTIN" name="gstin" defaultValue={profile.gstin ?? ""} className="uppercase" maxLength={15} />
+        <TextField label="PAN" name="pan" defaultValue={profile.pan ?? ""} className="uppercase" maxLength={10} />
+        <TextAreaField
+          label="Bank details printed on bills"
+          name="bankDetails"
+          rows={3}
+          defaultValue={profile.bankDetails ?? ""}
+          placeholder={"e.g. HDFC Bank, A/c 50200012345678, IFSC HDFC0001234\nUPI: sunrise@hdfcbank"}
+          hint="Shown to clients so they know where to pay. Never type passwords here."
+          fieldClassName="sm:col-span-2"
+        />
+      </FormGrid>
+    </ActionForm>
+  );
+}
+
+export type CompanyProfileValues = {
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  gstin: string | null;
+  pan: string | null;
+  bankDetails: string | null;
+};

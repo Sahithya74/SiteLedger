@@ -5,12 +5,12 @@ import { KeyRound, UserCog } from "lucide-react";
 import { PageHeader, Section } from "@/components/app/page-header";
 import { PageSkeleton } from "@/components/app/skeletons";
 import { Button } from "@/components/ui/button";
-import { CompanyNameForm, SessionsList } from "@/features/users/account-widgets";
+import { CompanyProfileForm, SessionsList } from "@/features/users/account-widgets";
 import { formatDateTime } from "@/lib/dates";
 import { roleLabel } from "@/lib/labels";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requireUser } from "@/server/auth/current-user";
-import { companyName, listSessions } from "@/server/services/users";
+import { companyProfile, listSessions } from "@/server/services/users";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -41,7 +41,7 @@ function describeDevice(userAgent: string | null): string {
 
 async function Settings() {
   const user = await requireUser();
-  const [sessions, company] = await Promise.all([listSessions(user), companyName()]);
+  const [sessions, company] = await Promise.all([listSessions(user), companyProfile()]);
   const isOwner = user.role === "ADMIN";
 
   return (
@@ -91,6 +91,7 @@ async function Settings() {
       {isOwner && (
         <Section
           title="Company"
+          description="Printed on quotations, bills and receipts."
           actions={
             <Button asChild variant="outline">
               <Link href="/settings/users">
@@ -99,7 +100,7 @@ async function Settings() {
             </Button>
           }
         >
-          <CompanyNameForm name={company} />
+          <CompanyProfileForm profile={company} />
         </Section>
       )}
 

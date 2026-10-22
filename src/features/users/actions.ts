@@ -4,14 +4,14 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createManagerSchema, resetPasswordSchema, updateUserSchema } from "@/features/users/schemas";
-import { zText } from "@/lib/validation";
+import { zOptionalText, zText } from "@/lib/validation";
 import { formToObject, runAction, type ActionResult } from "@/server/action";
 import { requireActionUser } from "@/server/auth/current-user";
 import {
   createManager,
   endSession,
   resetUserPassword,
-  setCompanyName,
+  setCompanyProfile,
   setManagerPermissions,
   setManagerProjects,
   setUserActive,
@@ -97,12 +97,27 @@ export async function signOutEverywhereAction(): Promise<Result> {
   });
 }
 
-export async function companyNameAction(_prev: Result, formData: FormData): Promise<Result> {
+const companySchema = z.object({
+  name: zText("Company name", 150),
+  address: zOptionalText(500),
+  phone: zOptionalText(30),
+  email: zOptionalText(150),
+  gstin: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : null),
+    z.string().regex(/^[0-9]{2}[A-Z0-9]{13}$/, "GSTIN has 15 characters, e.g. 33ABCDE1234F1Z5").nullable(),
+  ),
+  pan: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : null),
+    z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, "PAN looks like ABCDE1234F").nullable(),
+  ),
+  bankDetails: zOptionalText(500),
+});
+
+export async function companyProfileAction(_prev: Result, formData: FormData): Promise<Result> {
   return runAction(async () => {
     const user = await requireActionUser("settings.manage");
-    const { companyName } = z.object({ companyName: zText("Company name", 150) }).parse(formToObject(formData));
-    await setCompanyName(user, companyName);
+    await setCompanyProfile(user, companySchema.parse(formToObject(formData)));
     refresh();
-    return { ok: true, message: "Company name saved." };
+    return { ok: true, message: "Company details saved." };
   });
 }

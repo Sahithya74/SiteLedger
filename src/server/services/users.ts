@@ -345,21 +345,6 @@ export async function managerOptions() {
   });
 }
 
-export async function setCompanyName(actor: CurrentUser, name: string): Promise<void> {
-  requireOwner(actor);
-  const before = await companyName();
-  if (before === name) return;
-  await db.$transaction(async (tx) => {
-    await tx.appSetting.upsert({ where: { key: "company" }, create: { key: "company", value: { name } }, update: { value: { ...(await companyProfile()), name } } });
-    await audit(tx, {
-      actor,
-      action: "UPDATE",
-      entityType: "Settings",
-      summary: `changed the company name from "${before}" to "${name}"`,
-    });
-  });
-}
-
 export async function companyName(): Promise<string> {
   const row = await db.appSetting.findUnique({ where: { key: "company" } });
   const value = row?.value as { name?: string } | undefined;
