@@ -16,7 +16,7 @@ const SERIES = [
 
 type Row = { month: string; in: number; out: number; inPaise: string; outPaise: string };
 
-export function CashflowChart({ data }: { data: { month: string; inPaise: string; outPaise: string }[] }) {
+export function CashflowChart({ data, caption = "Last 6 months" }: { data: { month: string; inPaise: string; outPaise: string }[]; caption?: string }) {
   // Values arrive as paise strings (bigint can't go into a chart); rupees as numbers are fine for drawing.
   const rows: Row[] = data.map((d) => ({
     ...d,
@@ -34,10 +34,10 @@ export function CashflowChart({ data }: { data: { month: string; inPaise: string
             {s.label}
           </span>
         ))}
-        <span>Last 6 months · transfers between own accounts excluded</span>
+        <span>{caption} · transfers between own accounts excluded</span>
       </figcaption>
       {empty ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">No money has moved in the last 6 months yet.</p>
+        <p className="py-10 text-center text-sm text-muted-foreground">No money has moved in this period yet.</p>
       ) : (
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">

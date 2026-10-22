@@ -9,6 +9,8 @@ import { ACCOUNT_KIND, PAYEE_TYPE, PAYMENT_METHOD, PAYMENT_PURPOSE } from "@/lib
 import {
   clearChequeAction,
   createAccountAction,
+  createExpenseCategoryAction,
+  lockPeriodAction,
   depositChequeAction,
   recordChequeAction,
   recordClientPaymentAction,
@@ -318,6 +320,34 @@ export function ClearChequeDialog({ id, accounts, defaultAccountId }: { id: stri
       <input type="hidden" name="id" value={id} />
       <SelectField label="Bank account" name="accountId" options={accounts.filter((a) => a.kind === "BANK").map((a) => ({ value: a.id, label: a.name }))} defaultValue={defaultAccountId ?? undefined} required />
       <TextField label="Cleared on" name="date" type="date" defaultValue={todayIST()} required />
+    </DialogForm>
+  );
+}
+
+export function AddExpenseCategoryDialog({ groups }: { groups: Opt[] }) {
+  return (
+    <DialogForm trigger={<Button variant="outline">Add category</Button>} title="Add expense category" action={createExpenseCategoryAction} submitLabel="Add">
+      <TextField label="Category name" name="name" required placeholder="e.g. Scaffolding hire" />
+      <SelectField label="Counts under" name="group" options={groups} required />
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="isWelfare" className="size-4 accent-stone-800" />
+        Labour welfare (ask for quantity, e.g. meals or water cans)
+      </label>
+    </DialogForm>
+  );
+}
+
+export function LockPeriodDialog({ current }: { current: string | null }) {
+  return (
+    <DialogForm
+      trigger={<Button variant="outline" size="lg">Lock a month</Button>}
+      title="Lock closed months"
+      description="Nobody can add, change or reverse money entries dated on or before this date. Use it after the accounts for a month are checked."
+      action={lockPeriodAction}
+      submitLabel="Lock"
+    >
+      <TextField label="Lock everything up to" name="lockedUpTo" type="date" defaultValue={current ?? ""} required />
+      <TextField label="Reason (optional)" name="reason" placeholder="e.g. September checked with the bank statement" />
     </DialogForm>
   );
 }

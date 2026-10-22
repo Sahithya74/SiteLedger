@@ -106,7 +106,7 @@ export async function listOtherIncome(user: Actor & { id: string }, filter: Peri
   const rows = await db.otherIncome.findMany({
     where: { ...(seesAllProjects(user) ? {} : await projectScope(user)), ...dateWhere(filter) },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    include: { project: { select: { id: true, name: true } }, account: { select: { name: true } } },
+    include: { project: { select: { id: true, name: true } }, account: { select: { name: true } }, reversedBy: { select: { id: true } } },
   });
   return rows.map((r) => ({ ...r, date: fromDbDate(r.date) }));
 }
@@ -131,4 +131,23 @@ export async function ledgerEntries(user: Actor & { id: string }, filter: Period
 
 export function totals<T extends { amountPaise: bigint }>(rows: T[]) {
   return sumPaise(rows.map((r) => r.amountPaise));
+}
+
+/** One client payment with what is needed to print its receipt. */
+export async function getClientPaymentReceipt(user: Actor & { id: string }, id: string) {
+  if (!can(user, "projects.viewMoney") && !can(user, "clientPayments.record")) throw new ForbiddenError();
+  const p = await db.clientPayment.findUnique({
+    where: { id },
+    include: {
+      client: true,
+      project: { select: { id: true, name: true, address: true, city: true } },
+      invoice: { select: { number: true, raNumber: true } },
+      account: { select: { name: true } },
+      createdBy: { select: { name: true } },
+    },
+  });
+  if (!p) return null;
+  const ids = await accessibleProjectIds(user);
+  if (ids !== null && !ids.includes(p.projectId)) return null;
+  return { ...p, date: fromDbDate(p.date) };
 }
