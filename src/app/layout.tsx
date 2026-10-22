@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   title: { default: "SITECORE", template: "%s · SITECORE" },
   description: "Private construction operations and accounts management.",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "SITECORE", statusBarStyle: "black-translucent" },
+  icons: { apple: "/pwa-icons/apple-180.png" },
 };
 
 export const viewport: Viewport = {
