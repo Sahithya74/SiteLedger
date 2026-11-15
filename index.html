@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SITECORE — Construction operations &amp; accounts</title>
+<meta name="description" content="SITECORE: one private control room for a construction business — projects, sites, materials, labour, bills, payments and accounts.">
+<style>
+  :root { --bg:#f7f5f2; --card:#ffffff; --ink:#1c1917; --muted:#57534e; --line:#e7e5e4; --brand:#c97a1e; --brand-ink:#ffffff; --soft:#fbf1e4; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161412; --card:#201d1a; --ink:#f5f5f4; --muted:#a8a29e; --line:#33302c; --brand:#e0943a; --brand-ink:#1c1917; --soft:#2b2218; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:1080px; margin:0 auto; padding:0 16px; }
+  header { padding:56px 0 40px; }
+  .brand { display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.04em; }
+  .mark { width:40px; height:40px; border-radius:10px; background:var(--brand); display:grid; place-items:center; }
+  h1 { font-size:clamp(2rem,5vw,3.2rem); line-height:1.1; margin:28px 0 12px; letter-spacing:-.02em; }
+  .lead { font-size:1.15rem; color:var(--muted); max-width:720px; }
+  .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:28px; }
+  .btn { display:inline-block; padding:12px 20px; border-radius:10px; font-weight:600; text-decoration:none; border:1px solid var(--line); color:var(--ink); background:var(--card); }
+  .btn.primary { background:var(--brand); color:var(--brand-ink); border-color:transparent; }
+  .note { margin-top:20px; padding:12px 16px; border-radius:10px; background:var(--soft); color:var(--ink); font-size:.95rem; max-width:720px; }
+  section { padding:28px 0; }
+  h2 { font-size:1.5rem; margin:0 0 16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .card h3 { margin:0 0 6px; font-size:1.05rem; }
+  .card p { margin:0; color:var(--muted); font-size:.95rem; }
+  ul.ticks { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:8px 24px; }
+  ul.ticks li { padding-left:26px; position:relative; }
+  ul.ticks li::before { content:"✓"; position:absolute; left:0; color:var(--brand); font-weight:700; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
+  .stat b { display:block; font-size:1.8rem; }
+  .stat span { color:var(--muted); font-size:.9rem; }
+  footer { padding:40px 0 56px; color:var(--muted); font-size:.9rem; border-top:1px solid var(--line); margin-top:28px; }
+  a { color:var(--brand); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 19h14"/><path d="M7 14.5h10"/><path d="M9 10h6"/><path d="M11 5.5h2"/></svg></span>
+      SITECORE
+    </div>
+    <h1>One control room for your construction business.</h1>
+    <p class="lead">Projects, sites, work progress, materials, labour, engineers, client bills, payments, bank and cash — in one private app for the owner and the site manager. Built for India: ₹1,25,000.00 formatting, GST, RA bills, April–March financial year.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/Sahithya74/SiteLedger">View the code on GitHub</a>
+      <a class="btn" href="https://github.com/Sahithya74/SiteLedger#free-cloud-hosting-vercel--neon">How to run it</a>
+    </div>
+    <p class="note">This page describes SITECORE. The app itself keeps private business records behind a login, so it runs on its own server with a database — not on this page.</p>
+  </header>
+
+  <section>
+    <div class="stats">
+      <div class="card stat"><b>2</b><span>roles: Owner and Manager</span></div>
+      <div class="card stat"><b>20+</b><span>modules in one app</span></div>
+      <div class="card stat"><b>12</b><span>reports with print &amp; Excel</span></div>
+      <div class="card stat"><b>125</b><span>automated tests</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it covers</h2>
+    <div class="grid">
+      <div class="card"><h3>Dashboard</h3><p>Live totals and “things that need your attention”: overdue payments, low stock, pending wages, late work, cheques due.</p></div>
+      <div class="card"><h3>Projects &amp; work</h3><p>Sites, work breakdown with progress and dependencies, pending work, site map, budget vs spent.</p></div>
+      <div class="card"><h3>Clients &amp; billing</h3><p>Quotations with revisions, running (RA) bills with GST and retention, receipts, pending amounts, cheques.</p></div>
+      <div class="card"><h3>Materials</h3><p>Stock per site and main store, purchases, suppliers and price history, material requests, transfers.</p></div>
+      <div class="card"><h3>Labour</h3><p>Attendance grid, weekly wage sheet paid in one go, advances, labour contractors with work orders and bills.</p></div>
+      <div class="card"><h3>Accounts</h3><p>Money in and out, expenses, payables, bank and cash with running balances, reconciliation, site cash, month lock.</p></div>
+      <div class="card"><h3>Site</h3><p>Daily reports filled from the day's records, site issues, equipment, documents and photos, WhatsApp reminders.</p></div>
+      <div class="card"><h3>Reports</h3><p>Project profit, client outstanding, supplier dues, GST on bills, stock, attendance — print, PDF or CSV.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Safe by design</h2>
+    <ul class="ticks">
+      <li>Permissions checked on the server for every action</li>
+      <li>Login locks for 15 minutes after 3 wrong tries</li>
+      <li>Optional 2-step login with an authenticator app</li>
+      <li>“Forgot password” code only to a confirmed email</li>
+      <li>Money records can’t be deleted — only reversed</li>
+      <li>Every change written to an audit log</li>
+      <li>One-click backup and tested restore</li>
+      <li>Import workers, materials and suppliers from Excel</li>
+    </ul>
+  </section>
+
+  <footer>
+    SITECORE · by Sahithya · <a href="https://github.com/Sahithya74/SiteLedger">github.com/Sahithya74/SiteLedger</a>
+  </footer>
+</div>
+</body>
+</html>
