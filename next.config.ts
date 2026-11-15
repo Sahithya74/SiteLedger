@@ -26,7 +26,6 @@ const csp = [
   "form-action 'self'",
   "base-uri 'self'",
   "object-src 'none'",
-  ...(dev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 const securityHeaders = [
