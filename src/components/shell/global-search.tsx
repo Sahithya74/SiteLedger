@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, HardHat, ListChecks, Loader2, Search, Users } from "lucide-react";
+import { Boxes, Building2, FileText, HardHat, ListChecks, Loader2, ReceiptText, Search, Store, UserRound, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -21,6 +21,11 @@ const GROUPS: { type: SearchResult["type"]; label: string; icon: typeof Building
   { type: "client", label: "Clients", icon: Users },
   { type: "engineer", label: "Engineers", icon: HardHat },
   { type: "work", label: "Work items", icon: ListChecks },
+  { type: "worker", label: "Workers", icon: UserRound },
+  { type: "material", label: "Materials", icon: Boxes },
+  { type: "supplier", label: "Suppliers", icon: Store },
+  { type: "bill", label: "Client bills", icon: ReceiptText },
+  { type: "quotation", label: "Quotations", icon: FileText },
 ];
 
 /** Search box in the header. Opens with Ctrl+K (or ⌘K, or "/"). */
