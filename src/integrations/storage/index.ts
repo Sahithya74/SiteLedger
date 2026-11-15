@@ -42,9 +42,44 @@ class LocalDiskStorage implements StorageProvider {
   }
 }
 
+function newKey(extension: string): string {
+  const now = new Date();
+  const folder = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${folder}/${randomBytes(16).toString("hex")}.${extension.replace(/[^a-z0-9]/gi, "").slice(0, 8) || "bin"}`;
+}
+
+/**
+ * Keeps files inside PostgreSQL. Used on cloud hosts (Vercel) where the disk
+ * is wiped on every deploy; fine for bills and site photos (15 MB limit each).
+ */
+class DatabaseStorage implements StorageProvider {
+  async save(data: Buffer, extension: string): Promise<string> {
+    const { db } = await import("@/server/db");
+    const key = newKey(extension);
+    await db.storedFile.create({ data: { key, data: new Uint8Array(data) } });
+    return key;
+  }
+
+  async read(key: string): Promise<Buffer> {
+    const { db } = await import("@/server/db");
+    const row = await db.storedFile.findUniqueOrThrow({ where: { key } });
+    return Buffer.from(row.data);
+  }
+
+  async remove(key: string): Promise<void> {
+    const { db } = await import("@/server/db");
+    await db.storedFile.deleteMany({ where: { key } });
+  }
+}
+
 let provider: StorageProvider | null = null;
 
+/** STORAGE_DRIVER=database (the default on Vercel) or disk (the default elsewhere). */
 export function storage(): StorageProvider {
-  provider ??= new LocalDiskStorage(path.resolve(process.env.STORAGE_DIR ?? path.join(process.cwd(), "storage", "uploads")));
+  const driver = process.env.STORAGE_DRIVER ?? (process.env.VERCEL ? "database" : "disk");
+  provider ??=
+    driver === "database"
+      ? new DatabaseStorage()
+      : new LocalDiskStorage(path.resolve(process.env.STORAGE_DIR ?? path.join(process.cwd(), "storage", "uploads")));
   return provider;
 }

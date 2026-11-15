@@ -149,3 +149,10 @@ model AuditLog {
   @@index([userId, createdAt])
   @@index([projectId, createdAt])
 }
+
+/// Uploaded file contents, used when files are kept in the database (cloud hosting).
+model StoredFile {
+  key       String   @id
+  data      Bytes
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
