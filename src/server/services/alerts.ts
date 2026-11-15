@@ -325,7 +325,7 @@ export async function getAttentionItems(user: CurrentUser, today: ISODate = toda
       severity: i.severity === "CRITICAL" ? "CRITICAL" : "WARNING",
       title: `Site issue: ${i.title}`,
       detail: `${i.project.name} · reported ${formatDate(i.reportedOn)}`,
-      href: `/projects/${i.project.id}`,
+      href: `/issues?project=${i.project.id}`,
       weight: i.severity === "CRITICAL" ? 10 : 5,
     });
   }
