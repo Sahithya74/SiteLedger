@@ -97,6 +97,7 @@ const NAV: NavSection[] = [
     icon: "site",
     children: [
       { title: "Daily reports", href: "/daily-reports" },
+      { title: "Site issues", href: "/issues" },
       { title: "Equipment", href: "/equipment" },
       { title: "Documents", href: "/documents" },
       { title: "Notifications", href: "/notifications" },
@@ -116,6 +117,7 @@ const NAV: NavSection[] = [
     children: [
       { title: "My account", href: "/settings" },
       { title: "Users & permissions", href: "/settings/users", adminOnly: true },
+      { title: "Import from Excel", href: "/settings/import", permission: ["labour.manage", "materials.manage"] },
     ],
   },
 ];

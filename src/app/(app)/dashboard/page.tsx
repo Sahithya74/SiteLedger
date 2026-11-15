@@ -95,18 +95,19 @@ async function Dashboard() {
         />
         {finance && (
           <>
-            <StatTile label="Received" icon={IndianRupee} value={formatINRShort(finance.receivedPaise)} sub="from clients so far" tone="good" />
-            <StatTile label="Pending" icon={Wallet} value={formatINRShort(finance.pendingPaise)} sub="still to come from clients" />
-            <StatTile label="Expenses" icon={Receipt} value={formatINRShort(finance.spentPaise)} sub="all costs so far" />
+            <StatTile label="Received" icon={IndianRupee} value={formatINRShort(finance.receivedPaise)} sub="from clients so far" tone="good" href="/clients/payments?period=all" />
+            <StatTile label="Pending" icon={Wallet} value={formatINRShort(finance.pendingPaise)} sub="still to come from clients" href="/clients/pending" />
+            <StatTile label="Expenses" icon={Receipt} value={formatINRShort(finance.spentPaise)} sub="all costs so far" href="/reports/project-profit" />
           </>
         )}
-        <StatTile label="Labour present" icon={Users} value={site.labourPresent} sub={`${site.engineersPresent} engineer${site.engineersPresent === 1 ? "" : "s"} on site`} />
+        <StatTile label="Labour present" icon={Users} value={site.labourPresent} sub={`${site.engineersPresent} engineer${site.engineersPresent === 1 ? "" : "s"} on site`} href="/labour/attendance" />
         <StatTile
           label="Open issues"
           icon={AlertOctagon}
           value={site.openIssues}
           sub={site.issuesToday ? `${site.issuesToday} reported today` : "reported on site"}
           tone={site.openIssues > 0 ? "warn" : "default"}
+          href="/issues"
         />
         <StatTile
           label="Overdue work"
