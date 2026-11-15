@@ -20,5 +20,5 @@ export default function SetupPage() {
 async function SetupGate() {
   await connection(); // always check the live database, never a build-time snapshot
   if ((await userCount()) > 0) redirect("/login");
-  return <SetupForm />;
+  return <SetupForm needsCode={Boolean(process.env.SETUP_CODE?.trim())} />;
 }

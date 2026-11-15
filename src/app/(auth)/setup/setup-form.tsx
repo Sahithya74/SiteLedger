@@ -4,7 +4,7 @@ import { FormError, SubmitButton, TextField, useActionForm } from "@/components/
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { setupAction } from "../actions";
 
-export function SetupForm() {
+export function SetupForm({ needsCode }: { needsCode: boolean }) {
   const { onSubmit, pending, fieldErrors, formError } = useActionForm(setupAction);
   return (
     <Card>
@@ -17,7 +17,10 @@ export function SetupForm() {
       <CardContent>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <FormError message={fieldErrors && Object.keys(fieldErrors).length ? null : formError} />
-          <TextField label="Company name" name="companyName" required error={fieldErrors.companyName} autoFocus />
+          {needsCode && (
+            <TextField label="Setup code" name="setupCode" type="password" required error={fieldErrors.setupCode} hint="The SETUP_CODE set on the server. It stops strangers creating the owner account." autoFocus />
+          )}
+          <TextField label="Company name" name="companyName" required error={fieldErrors.companyName} autoFocus={!needsCode} />
           <TextField label="Your name" name="name" required error={fieldErrors.name} autoComplete="name" />
           <TextField
             label="Login name"

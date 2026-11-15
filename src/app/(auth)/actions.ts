@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash, timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 import { changePasswordSchema, resetWithCodeSchema, setupOwnerSchema } from "@/features/users/schemas";
 import { runAction, formToObject, type ActionResult } from "@/server/action";
@@ -48,6 +49,14 @@ export async function logoutAction(): Promise<void> {
 
 export async function setupAction(_prev: ActionResult<unknown>, formData: FormData): Promise<ActionResult<unknown>> {
   return runAction(async () => {
+    // On a public server, only someone who knows SETUP_CODE may create the owner account.
+    const expected = process.env.SETUP_CODE?.trim();
+    if (expected) {
+      const given = String(formData.get("setupCode") ?? "").trim();
+      const a = createHash("sha256").update(given).digest();
+      const b = createHash("sha256").update(expected).digest();
+      if (!timingSafeEqual(a, b)) return { ok: false, error: "The setup code is not right.", fieldErrors: { setupCode: "Wrong code." } };
+    }
     const input = setupOwnerSchema.parse(formToObject(formData));
     const owner = await createFirstOwner(input);
     const { token, absoluteExpiresAt } = await createSession(owner.id, await requestMeta());
