@@ -2,7 +2,7 @@
 
 **Private Construction Operations & Accounts Management System**
 
-Sections 1–49 are the original requirements, written down compactly with every requirement kept. Sections 50–65 are additions agreed during planning. The **Stage** column in [Build status](#build-status) records what is built so far.
+Sections 1–49 are the original requirements, written down compactly with every requirement kept. Sections 50–66 are additions agreed during planning and later. The **Stage** column in [Build status](#build-status) records what is built so far.
 
 ---
 
@@ -299,37 +299,40 @@ Rules for every stage: the app stays runnable, migrations stay valid, there are 
 
 | # | Addition | Stage |
 |---|---|---|
-| 50 | **Sites inside projects.** A project can have several sites; a default "Main site" is created automatically and the site picker is hidden when there is only one. | 1 ✅ |
-| 51 | **Labour contractors (mestri / gang leaders).** Piece-rate or lump-sum work orders, contractor bills with retention and TDS (194C), and payments. | 2 (schema ✅) |
-| 52 | **Worker advances and weekly wage settlement.** Settlement day is configurable (default Saturday). Wage sheet = attendance + overtime − advances − deductions; pay the whole sheet in one action. | 2 (schema ✅) |
-| 53 | **Site cash (petty cash).** The owner gives cash to the manager, who records site expenses against it. Balance, top-ups and settlement are tracked. | 3 (schema ✅) |
-| 54 | **Material requests.** The site raises a request, the owner approves it and it becomes a purchase. Stock is kept per site plus a main store, with transfers. | 2 (schema ✅) |
-| 55 | **Client running (RA) bills.** GST (CGST+SGST / IGST) with HSN/SAC, retention held by the client, client TDS, and **extra work / variations** that change the contract value once approved. | 3 (schema ✅) |
-| 56 | **Cheque tracking.** Received → deposited → cleared / bounced, with a reminder when a post-dated cheque can be deposited. | 3 (schema ✅, alert ✅) |
-| 57 | **Indian financial year (Apr–Mar)** filters, plus a **month lock** so closed periods cannot receive backdated entries. | 3 (enforced in services ✅) |
-| 58 | **Account safety.** Optional 2-step login for the owner, owner-only password resets, a list of active sessions, and "sign out everywhere". | 1 ✅ (2-step: 5) |
-| 59 | **WhatsApp share links** (`wa.me`) for reminders and reports, with no API needed. | 4 (contact links ✅) |
-| 60 | **India formatting.** IST "today", DD-MM-YYYY, ₹1,25,000.00, ₹2.8 Cr and ₹90 L, and amount in words on bills ("Rupees One Lakh Twenty-Five Thousand Only"). | 1 ✅ |
-| 61 | **Supplier price history**, compared across suppliers. | 2 |
-| 62 | **Excel/CSV import** of workers, materials and suppliers. | 5 |
-| 63 | **Backup.** "Download backup" plus a daily script. Restore is from the command line only. | 5 |
-| 64 | **Mobile site use.** Installable PWA, camera upload, image compression. | 4 |
-| 65 | **Ready for other languages.** All labels live in one place. | 1 (structure ✅) |
+| 50 | **Sites inside projects.** A project can have several sites; a default "Main site" is created automatically and the site picker is hidden when there is only one. | ✅ |
+| 51 | **Labour contractors (mestri / gang leaders).** Piece-rate or lump-sum work orders, contractor bills with retention and TDS (194C), and payments. | ✅ |
+| 52 | **Worker advances and weekly wage settlement.** Settlement day is configurable (default Saturday). Wage sheet = attendance + overtime − advances − deductions; pay the whole sheet in one action. | ✅ |
+| 53 | **Site cash (petty cash).** The owner gives cash to the manager, who records site expenses against it. Balance, top-ups and settlement are tracked. | ✅ |
+| 54 | **Material requests.** The site raises a request, the owner approves it and it becomes a purchase. Stock is kept per site plus a main store, with transfers. | ✅ |
+| 55 | **Client running (RA) bills.** GST (CGST+SGST / IGST) with HSN/SAC, retention held by the client, client TDS, and **extra work / variations** that change the contract value once approved. | ✅ |
+| 56 | **Cheque tracking.** Received → deposited → cleared / bounced, with a reminder when a post-dated cheque can be deposited. | ✅ |
+| 57 | **Indian financial year (Apr–Mar)** filters, plus a **month lock** so closed periods cannot receive backdated entries. | ✅ |
+| 58 | **Account safety.** Optional 2-step login (authenticator app), owner password resets, a list of active sessions, and "sign out everywhere". | ✅ |
+| 59 | **WhatsApp share links** (`wa.me`) for reminders and reports, with no API needed. | ✅ |
+| 60 | **India formatting.** IST "today", DD-MM-YYYY, ₹1,25,000.00, ₹2.8 Cr and ₹90 L, and amount in words on bills ("Rupees One Lakh Twenty-Five Thousand Only"). | ✅ |
+| 61 | **Supplier price history**, compared across suppliers. | ✅ |
+| 62 | **Excel/CSV import** of workers, materials and suppliers. | ✅ |
+| 63 | **Backup.** "Download backup" plus a daily script. Restore is from the command line only. | ✅ |
+| 64 | **Mobile site use.** Installable PWA, camera upload, image compression. | ✅ |
+| 65 | **Ready for other languages.** All labels live in one place. | ✅ |
+| 66 | **Login lock and email reset** (asked for on 2026-10-22). Three wrong passwords lock the login for 15 minutes. "Forgot password" emails a one-time code to an address the person confirmed with a code first; the code lets them set a new password. Replaces "owner-only resets" in §58 — the owner can still reset passwords. | ✅ |
 
 ---
 
 ## Build status
 
+All five stages are built.
+
 | Area | Status |
 |---|---|
 | Database schema for every module, plus integrity guards (triggers, CHECKs, trigram search) | ✅ Stage 1 |
-| Login, sessions, rate limiting, first-run setup, password change and reset, sessions page | ✅ Stage 1 |
+| Login, sessions, first-run setup, password change and reset, sessions page | ✅ Stage 1 |
 | Roles and editable manager permissions (with presets and owner-only permissions) | ✅ Stage 1 |
-| Owner dashboard and manager dashboard (attention list, KPIs, today on site, money, cash flow) | ✅ Stage 1 |
-| Projects (list, tabs, create and edit, status, archive, delete guard, overview, work, map) | ✅ Stage 1 |
-| Clients, engineers (basic), pending work, global search, audit log | ✅ Stage 1 |
-| Money, stock, attendance and purchase **services** (used by the demo data; screens come in Stages 2–3) | ✅ services only |
-| Materials, suppliers, labour, attendance, wages screens | Stage 2 |
-| Quotations, bills, payments, expenses, banks, accounting screens | Stage 3 |
-| Reports, documents, notification centre, daily report screen, equipment, PWA | Stage 4 |
-| Admin 2-step login, backups, CSV import, CSP headers, performance pass | Stage 5 |
+| Owner and manager dashboards (attention list, KPIs, today on site, money, cash flow) | ✅ Stage 1 |
+| Projects (list, tabs, create and edit, status, archive, delete guard, overview, work, map), clients, engineers, pending work, search, audit log | ✅ Stage 1 |
+| Materials, stock per site, suppliers and price history, purchases, material requests, transfers | ✅ Stage 2 |
+| Labour, attendance grid, weekly wage sheet, advances, labour contractors, work orders and bills; engineer tasks and pay; documents and photos | ✅ Stage 2 |
+| Quotations (revisions, print), client RA bills with GST and retention, payments received and receipts, pending, cheques | ✅ Stage 3 |
+| Money in, expenses and categories, payments made, payables, bank and cash accounts, ledger, reconciliation, site cash, month lock, project budget and extra work | ✅ Stage 3 |
+| Reports (12, with print and CSV), notifications and engineer reminders, daily reports, equipment, documents page, project Materials / Labour / Site diary tabs, installable app | ✅ Stage 4 |
+| 2-step login, 3-try login lock, email-confirmed forgot password, backup and restore, CSV import, security headers, wider search | ✅ Stage 5 |

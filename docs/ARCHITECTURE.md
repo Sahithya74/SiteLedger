@@ -115,7 +115,25 @@ tests/unit | tests/integration | tests/e2e
   - material requests
   - recent payments received
 - Items are ranked by severity, then by weight (amount or days late).
-- Stage 4 will persist them to `Notification` (with `dedupeKey`) for the notification centre and engineer reminders.
+- They are always computed live, never stored. The notifications page shows them alongside stored `Notification` rows: reminders written by people, and one engineer-task reminder per task per day (`dedupeKey = task:<id>:<date>`).
+- Nothing is sent automatically. People pass reminders on (WhatsApp link, call, in person) and record it as a `NotificationDelivery`.
+
+## Reports, print and export
+
+- `server/reports/registry.ts` defines each report once: filters, permission, columns (text / money / date / number) and a `run` function.
+- The same result feeds the screen (`/reports/[key]`), the print view (`/print/report/[key]`) and CSV (`/api/export`).
+- Quotations, bills, receipts and daily reports have print pages under `/print`; "Save as PDF" in the browser's print dialog gives the PDF.
+
+## Accounts and email
+
+- Login lock: 3 failures per login name in 15 minutes (`MAX_FAILURES_PER_USERNAME` in `server/auth/login.ts`).
+- 2-step login: `server/auth/totp.ts` (RFC 6238, tested against the RFC vectors). The last used time step is kept per user so a code can't be replayed.
+- Email codes: `server/auth/verification.ts` (hash only, 10 minutes, 5 tries, 3 per hour). Sending goes through `integrations/email` (SMTP via nodemailer); without SMTP settings, development prints the email in the console.
+
+## Backup and restore
+
+- `server/backup.ts` writes every table (except sessions and login attempts) as JSON produced by PostgreSQL (`json_agg`).
+- `scripts/restore-backup.ts` loads it with `json_populate_recordset`, parents before children (from the foreign keys), inside one transaction, and only into an empty database.
 
 ## Maps
 
@@ -142,4 +160,4 @@ tests/unit | tests/integration | tests/e2e
 | Integration | Real PostgreSQL (`TEST_DATABASE_URL`, wiped per test): login + lockout + sessions; manager scoping and refusals; owner-only permissions; ledger + balances; DB triggers blocking delete/update; reversals; period lock; overpayment confirmation; delete guard; work dependencies and alerts | `npm run test:integration` |
 | End-to-end | Playwright against the demo data: login, dashboard attention list, create project → standard stages → delayed item → pending work; manager blocked from owner pages; phone layout without horizontal scroll | `npm run test:e2e` |
 
-Each later stage adds tests for its own workflows: attendance → wages → payment; purchase → stock → payable; RA bill → client payment → receivable.
+Later stages added: TOTP vectors (unit); login lock, email confirmation, forgot-password codes, 2-step login and code replay, and CSV import (integration). Backup → restore was checked by restoring the demo data into a fresh database and comparing every table.
