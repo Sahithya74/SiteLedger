@@ -67,6 +67,28 @@ Read [docs/SECURITY.md](docs/SECURITY.md) before going live.
 
 ---
 
+## Free cloud hosting (Vercel + Neon)
+
+A permanent public link that works without this PC.
+
+1. **Database — Neon** (<https://neon.tech>, free): sign up, create a project (region: Singapore or Mumbai), and copy the **direct** connection string (it looks like `postgresql://…@ep-…neon.tech/neondb?sslmode=require`; turn "Connection pooling" off before copying).
+2. **App — Vercel** (<https://vercel.com>, free "Hobby"): sign up with GitHub → **Add New → Project** → import `Sahithya74/SiteLedger`.
+3. Before clicking **Deploy**, open **Environment Variables** and add:
+
+   | Name | Value |
+   |---|---|
+   | `DATABASE_URL` | the Neon connection string |
+   | `SETUP_CODE` | any secret phrase only you know |
+   | `SEED_DEMO` | `false` |
+   | `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465` | optional, for "forgot password" emails |
+
+4. **Deploy.** The build creates all tables in Neon (`vercel-build` runs `prisma migrate deploy`).
+5. Open the `https://….vercel.app` link → **Set up SITECORE** → enter the setup code and create the owner account. Then add managers in Settings, and turn on 2-step login.
+
+Every push to `main` on GitHub redeploys automatically. Uploaded photos and bills are stored in the database on Vercel. Backups work the same way (Settings → Download backup).
+
+---
+
 ## Email ("Forgot password")
 
 Each person adds their email in **Settings → My account** and confirms it with a 6-digit code. If they later forget their password, **Forgot your password?** on the login page emails a code that lets them set a new one.

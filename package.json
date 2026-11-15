@@ -31,7 +31,8 @@
     "backup": "tsx --conditions=react-server scripts/backup.ts",
     "db:restore": "tsx --conditions=react-server scripts/restore-backup.ts",
     "user:set-password": "tsx --conditions=react-server scripts/set-password.ts",
-    "public": "node scripts/start-public.mjs"
+    "public": "node scripts/start-public.mjs",
+    "vercel-build": "prisma migrate deploy && next build"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.2",
