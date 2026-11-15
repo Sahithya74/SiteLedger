@@ -54,6 +54,10 @@ const app = spawn(process.execPath, [nextBin, "start", "-p", port], {
 await ensureCloudflared();
 const tunnel = spawn(exe, ["tunnel", "--no-autoupdate", "--url", `http://localhost:${port}`], { cwd: root });
 let shown = false;
+// Keep the tunnel's own messages for troubleshooting.
+const log = createWriteStream(path.join(tools, "cloudflared.log"), { flags: "w" });
+tunnel.stdout.pipe(log);
+tunnel.stderr.pipe(log);
 const watch = (chunk) => {
   const match = String(chunk).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
   if (match && !shown) {
